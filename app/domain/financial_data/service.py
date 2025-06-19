@@ -22,7 +22,8 @@ class FinancialDataService:
         """
     try:
       logger.info("벡터 스토어 초기화 시작")
-      csv_path = os.path.join("data", "csv", "dart_general_company_financial_fixed.csv")
+      # 영어 컬럼명을 사용하는 CSV 파일 경로로 변경
+      csv_path = os.path.join("data", "csv", "dart_general_company_financial_fixed_en.csv")
       logger.info(f"CSV 파일 경로: {csv_path}")
 
       if not os.path.exists(csv_path):

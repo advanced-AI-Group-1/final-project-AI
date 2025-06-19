@@ -1,0 +1,26 @@
+{
+  "company_name": "테스트기업",
+  "financial_data": {
+    "corp_code": "123456",
+    "corp_name": "테스트기업",
+    "market_type": "코스닥시장상장법인",
+    "industry_name": "소프트웨어 개발 및 공급업",
+    "revenue": 1000000000,
+    "operating_profit": 150000000,
+    "net_income": 100000000,
+    "total_assets": 2000000000,
+    "total_liabilities": 1000000000,
+    "total_equity": 1000000000,
+    "debt_ratio": 50.0,
+    "ROA": 5.0,
+    "ROE": 10.0,
+    "asset_turnover_ratio": 0.5,
+    "interest_to_assets_ratio": 0.02,
+    "interest_to_revenue_ratio": 0.04,
+    "cash_flow_to_interest": 5.0,
+    "interest_to_cash_flow": 0.2,
+    "operating_cash_flow": 120000000,
+    "interest_bearing_debt": 800000000
+  },
+  "additional_context": "이 회사는 최근 5년간 꾸준한 성장세를 보이고 있으며, 신규 사업 확장 중입니다."
+}
