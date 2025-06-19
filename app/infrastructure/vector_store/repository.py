@@ -185,11 +185,16 @@ class VectorStoreRepository:
           "is_consolidated": str(row['is_consolidated'])
       }
 
-      # 수치 데이터도 메타데이터에 포함 (필터링용)
-      numeric_cols = ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']
-      for col in numeric_cols:
-        if pd.notna(row[col]) and row[col] != "":
-          metadata[col] = float(row[col])
+      # 모든 수치 데이터를 메타데이터에 포함
+      for col in df.columns:
+        if col not in ['corp_code', 'corp_name', 'market_type', 'industry_name', 'is_consolidated']:
+          if pd.notna(row[col]) and row[col] != "":
+            try:
+              metadata[col] = float(row[col])
+            except (ValueError, TypeError):
+              # 숫자로 변환할 수 없는 경우 문자열로 저장
+              if pd.notna(row[col]):
+                metadata[col] = str(row[col])
 
       metadatas.append(metadata)
       ids.append(f"corp_{row['corp_code']}")

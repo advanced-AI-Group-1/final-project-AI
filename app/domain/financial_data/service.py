@@ -58,11 +58,11 @@ class FinancialDataService:
     # 결과 형식 변환
     results = []
     for company in search_results["results"]:
-      # 재무 데이터 추출
+      # 재무 데이터 추출 - 모든 메타데이터 포함
       financial_data = {}
       for key, value in company["metadata"].items():
-        if key in ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']:
-          financial_data[key] = value
+        # 모든 재무 데이터 및 파생변수 포함 (필터링 제거)
+        financial_data[key] = value
 
       result = {
           "company_name": company["corp_name"],
@@ -105,11 +105,11 @@ class FinancialDataService:
     # 결과 형식 변환
     results = []
     for company in filter_results["results"]:
-      # 재무 데이터 추출
+      # 재무 데이터 추출 - 모든 메타데이터 포함
       financial_data = {}
       for key, value in company["metadata"].items():
-        if key in ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']:
-          financial_data[key] = value
+        # 모든 재무 데이터 및 파생변수 포함 (필터링 제거)
+        financial_data[key] = value
 
       result = {
           "company_name": company["corp_name"],
