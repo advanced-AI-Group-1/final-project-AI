@@ -53,8 +53,13 @@ final-project-AI/
 │   └── integration/             # 통합 테스트
 │
 ├── main.py                      # 애플리케이션 진입점
-└── requirements.txt             # 의존성 패키지 목록
+├── gunicorn_conf.py             # Gunicorn 설정 파일
+├── run.py                       # 서버 실행 스크립트
+├── requirements.txt             # 의존성 패키지 목록
+└── README.md                    # 프로젝트 설명
 ```
+
+각 폴더에는 `.gitkeep` 파일을 추가하여 빈 폴더도 Git에 포함되도록 했습니다.
 
 ## 설치 및 실행 방법
 
@@ -70,9 +75,23 @@ OPENAI_API_KEY=your_openai_api_key
 DATABASE_URL=sqlite+aiosqlite:///./data/finance_ai.db
 ```
 
-3. 서버 실행
+3. 서버 실행 방법
+
+### 개발 환경
 ```bash
 uvicorn main:app --reload
+```
+
+### 프로덕션 환경 (Gunicorn + Uvicorn)
+```bash
+# Linux/Mac
+gunicorn main:app -c gunicorn_conf.py
+
+# 또는 스크립트 사용
+python run.py
+
+# Windows
+start.bat
 ```
 
 4. API 문서 접속
