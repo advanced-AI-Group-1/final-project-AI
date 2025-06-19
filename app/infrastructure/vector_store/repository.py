@@ -1,10 +1,11 @@
-from typing import List, Dict, Any, Optional
-import os
-import pandas as pd
-import chromadb
-import voyageai
-from pathlib import Path
 import logging
+import os
+from typing import List, Dict, Optional
+
+import chromadb
+import pandas as pd
+import voyageai
+from dotenv import load_dotenv
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
@@ -12,15 +13,26 @@ logger = logging.getLogger(__name__)
 
 class VectorStoreRepository:
   """
-    재무제표 데이터의 벡터 저장소 관리를 위한 리포지토리 클래스
-    VoyageAI와 ChromaDB를 사용하여 구현
-    """
+      재무제표 데이터의 벡터 저장소 관리를 위한 리포지토리 클래스
+      VoyageAI와 ChromaDB를 사용하여 구현
+      """
 
   def __init__(self, api_key=None):
+    # .env 파일 로드
+    load_dotenv()
     # 환경 변수에서 VoyageAI API 키 가져오기 또는 매개변수로 전달된 키 사용
-    self.api_key = api_key or os.getenv("VOYAGE_API_KEY") or "pa-3y4DmABRrSsO2EaPMuqRL-f4UlEXlx_4DJi9p9zcnKC"
+    self.api_key = api_key or os.getenv("VOYAGE_API_KEY")
 
-    # VoyageAI 클라이언트 초기화
+    # API 키 로깅 (마스킹 처리)
+    if self.api_key:
+      masked_key = self.api_key[:4] + "*" * (len(self.api_key) - 8) + self.api_key[-4:] if len(
+          self.api_key) > 8 else "****"
+      logger.info(f"VoyageAI API 키 로드됨: {masked_key}")
+    else:
+      logger.error("VoyageAI API 키를 찾을 수 없습니다!")
+
+    # VoyageAI 클라이언트 초기화 및 전역 API 키 설정
+    voyageai.api_key = self.api_key  # 전역 API 키 설정 추가
     self.voyage_client = voyageai.Client(api_key=self.api_key)
 
     # ChromaDB 클라이언트 초기화
@@ -36,8 +48,8 @@ class VectorStoreRepository:
 
   def _initialize_collection(self):
     """
-        ChromaDB 컬렉션 초기화 또는 기존 컬렉션 로드
-        """
+            ChromaDB 컬렉션 초기화 또는 기존 컬렉션 로드
+            """
     try:
       logger.info(f"컬렉션 '{self.collection_name}'을 로드하려고 시도합니다.")
       self.collection = self.chroma_client.get_collection(name=self.collection_name)
@@ -51,14 +63,14 @@ class VectorStoreRepository:
 
   def create_text_representation(self, row: pd.Series) -> str:
     """
-        각 행의 데이터를 자연어 텍스트로 변환
-        
-        Args:
-            row (pd.Series): 재무 데이터 행
+            각 행의 데이터를 자연어 텍스트로 변환
             
-        Returns:
-            str: 텍스트 표현
-        """
+            Args:
+                row (pd.Series): 재무 데이터 행
+                
+            Returns:
+                str: 텍스트 표현
+            """
     text_parts = []
 
     # 기본 회사 정보
@@ -68,17 +80,17 @@ class VectorStoreRepository:
 
     # 재무 정보 (억원 단위로 표현)
     if pd.notna(row['매출액']):
-      text_parts.append(f"매출액: {row['매출액']/100000000:.1f}억원")
+      text_parts.append(f"매출액: {row['매출액'] / 100000000:.1f}억원")
     if pd.notna(row['영업이익']):
-      text_parts.append(f"영업이익: {row['영업이익']/100000000:.1f}억원")
+      text_parts.append(f"영업이익: {row['영업이익'] / 100000000:.1f}억원")
     if pd.notna(row['당기순이익']):
-      text_parts.append(f"당기순이익: {row['당기순이익']/100000000:.1f}억원")
+      text_parts.append(f"당기순이익: {row['당기순이익'] / 100000000:.1f}억원")
     if pd.notna(row['총자산']):
-      text_parts.append(f"총자산: {row['총자산']/100000000:.1f}억원")
+      text_parts.append(f"총자산: {row['총자산'] / 100000000:.1f}억원")
     if pd.notna(row['총부채']):
-      text_parts.append(f"총부채: {row['총부채']/100000000:.1f}억원")
+      text_parts.append(f"총부채: {row['총부채'] / 100000000:.1f}억원")
     if pd.notna(row['자본총계']):
-      text_parts.append(f"자본총계: {row['자본총계']/100000000:.1f}억원")
+      text_parts.append(f"자본총계: {row['자본총계'] / 100000000:.1f}억원")
 
     # 재무 비율
     if pd.notna(row['부채비율']):
@@ -94,15 +106,15 @@ class VectorStoreRepository:
 
   def embed_with_voyage(self, texts: List[str], model: str = "voyage-3") -> List[List[float]]:
     """
-        Voyage AI를 사용하여 텍스트 임베딩
-        
-        Args:
-            texts (List[str]): 임베딩할 텍스트 목록
-            model (str): 사용할 임베딩 모델
+            Voyage AI를 사용하여 텍스트 임베딩
             
-        Returns:
-            List[List[float]]: 임베딩 벡터 목록
-        """
+            Args:
+                texts (List[str]): 임베딩할 텍스트 목록
+                model (str): 사용할 임베딩 모델
+                
+            Returns:
+                List[List[float]]: 임베딩 벡터 목록
+            """
     # 배치 사이즈를 128로 제한 (Voyage API 제한)
     batch_size = 128
     all_embeddings = []
@@ -126,13 +138,13 @@ class VectorStoreRepository:
 
   def build_vector_store(self, csv_path: str, collection_name: Optional[str] = None, embedding_model: str = "voyage-3"):
     """
-        CSV 파일에서 데이터를 로드하여 벡터 스토어 구축
-        
-        Args:
-            csv_path (str): CSV 파일 경로
-            collection_name (Optional[str]): 컬렉션 이름 (없으면 기본값 사용)
-            embedding_model (str): 사용할 임베딩 모델
-        """
+            CSV 파일에서 데이터를 로드하여 벡터 스토어 구축
+            
+            Args:
+                csv_path (str): CSV 파일 경로
+                collection_name (Optional[str]): 컬렉션 이름 (없으면 기본값 사용)
+                embedding_model (str): 사용할 임베딩 모델
+            """
     # 컬렉션 이름 설정
     if collection_name:
       self.collection_name = collection_name
@@ -195,16 +207,16 @@ class VectorStoreRepository:
 
   async def search_similar_companies(self, query: str, n_results: int = 5, embedding_model: str = "voyage-3"):
     """
-        쿼리와 유사한 회사 검색
-        
-        Args:
-            query (str): 검색 쿼리
-            n_results (int): 반환할 결과 수
-            embedding_model (str): 사용할 임베딩 모델
+            쿼리와 유사한 회사 검색
             
-        Returns:
-            Dict: 검색 결과
-        """
+            Args:
+                query (str): 검색 쿼리
+                n_results (int): 반환할 결과 수
+                embedding_model (str): 사용할 임베딩 모델
+                
+            Returns:
+                Dict: 검색 결과
+            """
     logger.info(f"검색 쿼리: '{query}', 컬렉션 이름: '{self.collection_name}'")
 
     # 컬렉션이 제대로 초기화되었는지 확인
@@ -221,7 +233,8 @@ class VectorStoreRepository:
           input_type="query"  # 쿼리 임베딩용
       ).embeddings[0]
     else:
-      query_embedding = self.voyage_client.embed(texts=[query], model="voyage-3", input_type="query").embeddings[0]
+      query_embedding = \
+        self.voyage_client.embed(texts=[query], model="voyage-3", input_type="query").embeddings[0]
 
     # 검색 실행
     logger.info(f"컬렉션 '{self.collection_name}'에서 검색 실행 중...")
@@ -261,17 +274,17 @@ class VectorStoreRepository:
                           max_debt_ratio: float = None,
                           n_results: int = 5):
     """
-        조건부 필터링 검색
-        
-        Args:
-            industry (str): 업종
-            min_revenue (float): 최소 매출액
-            max_debt_ratio (float): 최대 부채비율
-            n_results (int): 반환할 결과 수
+            조건부 필터링 검색
             
-        Returns:
-            Dict: 검색 결과
-        """
+            Args:
+                industry (str): 업종
+                min_revenue (float): 최소 매출액
+                max_debt_ratio (float): 최대 부채비율
+                n_results (int): 반환할 결과 수
+                
+            Returns:
+                Dict: 검색 결과
+            """
     logger.info(f"필터링 검색 시작, 컬렉션 이름: '{self.collection_name}'")
 
     # 컬렉션이 제대로 초기화되었는지 확인

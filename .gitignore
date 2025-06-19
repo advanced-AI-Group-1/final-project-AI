@@ -196,3 +196,5 @@ cython_debug/
 !/.env
 !/tests/
 /tests
+.env
+.env.development
