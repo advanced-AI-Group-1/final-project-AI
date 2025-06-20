@@ -79,28 +79,28 @@ class VectorStoreRepository:
     text_parts.append(f"업종: {row['industry_name']}")
 
     # 재무 정보 (억원 단위로 표현)
-    if pd.notna(row['매출액']):
-      text_parts.append(f"매출액: {row['매출액'] / 100000000:.1f}억원")
-    if pd.notna(row['영업이익']):
-      text_parts.append(f"영업이익: {row['영업이익'] / 100000000:.1f}억원")
-    if pd.notna(row['당기순이익']):
-      text_parts.append(f"당기순이익: {row['당기순이익'] / 100000000:.1f}억원")
-    if pd.notna(row['총자산']):
-      text_parts.append(f"총자산: {row['총자산'] / 100000000:.1f}억원")
-    if pd.notna(row['총부채']):
-      text_parts.append(f"총부채: {row['총부채'] / 100000000:.1f}억원")
-    if pd.notna(row['자본총계']):
-      text_parts.append(f"자본총계: {row['자본총계'] / 100000000:.1f}억원")
+    if pd.notna(row['revenue']):
+      text_parts.append(f"매출액: {row['revenue'] / 100000000:.1f}억원")
+    if pd.notna(row['operating_profit']):
+      text_parts.append(f"영업이익: {row['operating_profit'] / 100000000:.1f}억원")
+    if pd.notna(row['net_income']):
+      text_parts.append(f"당기순이익: {row['net_income'] / 100000000:.1f}억원")
+    if pd.notna(row['total_assets']):
+      text_parts.append(f"총자산: {row['total_assets'] / 100000000:.1f}억원")
+    if pd.notna(row['total_liabilities']):
+      text_parts.append(f"총부채: {row['total_liabilities'] / 100000000:.1f}억원")
+    if pd.notna(row['total_equity']):
+      text_parts.append(f"자본총계: {row['total_equity'] / 100000000:.1f}억원")
 
     # 재무 비율
-    if pd.notna(row['부채비율']):
-      text_parts.append(f"부채비율: {row['부채비율']:.2f}%")
+    if pd.notna(row['debt_ratio']):
+      text_parts.append(f"부채비율: {row['debt_ratio']:.2f}%")
     if pd.notna(row['ROA']):
       text_parts.append(f"ROA: {row['ROA']:.2f}%")
     if pd.notna(row['ROE']):
       text_parts.append(f"ROE: {row['ROE']:.2f}%")
-    if pd.notna(row['매출총자산회전율']):
-      text_parts.append(f"매출총자산회전율: {row['매출총자산회전율']:.2f}")
+    if pd.notna(row['asset_turnover_ratio']):
+      text_parts.append(f"매출총자산회전율: {row['asset_turnover_ratio']:.2f}")
 
     return " | ".join(text_parts)
 
@@ -185,11 +185,16 @@ class VectorStoreRepository:
           "is_consolidated": str(row['is_consolidated'])
       }
 
-      # 수치 데이터도 메타데이터에 포함 (필터링용)
-      numeric_cols = ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']
-      for col in numeric_cols:
-        if pd.notna(row[col]) and row[col] != "":
-          metadata[col] = float(row[col])
+      # 모든 수치 데이터를 메타데이터에 포함
+      for col in df.columns:
+        if col not in ['corp_code', 'corp_name', 'market_type', 'industry_name', 'is_consolidated']:
+          if pd.notna(row[col]) and row[col] != "":
+            try:
+              metadata[col] = float(row[col])
+            except (ValueError, TypeError):
+              # 숫자로 변환할 수 없는 경우 문자열로 저장
+              if pd.notna(row[col]):
+                metadata[col] = str(row[col])
 
       metadatas.append(metadata)
       ids.append(f"corp_{row['corp_code']}")
@@ -300,11 +305,11 @@ class VectorStoreRepository:
       logger.info(f"업종 필터 적용: {industry}")
 
     if min_revenue:
-      where_clause["매출액"] = {"$gte": min_revenue}
+      where_clause["revenue"] = {"$gte": min_revenue}
       logger.info(f"최소 매출액 필터 적용: {min_revenue}")
 
     if max_debt_ratio:
-      where_clause["부채비율"] = {"$lte": max_debt_ratio}
+      where_clause["debt_ratio"] = {"$lte": max_debt_ratio}
       logger.info(f"최대 부채비율 필터 적용: {max_debt_ratio}")
 
     logger.info(f"필터 조건: {where_clause}")

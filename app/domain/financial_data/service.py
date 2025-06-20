@@ -22,7 +22,8 @@ class FinancialDataService:
         """
     try:
       logger.info("벡터 스토어 초기화 시작")
-      csv_path = os.path.join("data", "csv", "dart_general_company_financial_fixed.csv")
+      # 영어 컬럼명을 사용하는 CSV 파일 경로로 변경
+      csv_path = os.path.join("data", "csv", "dart_general_company_financial_fixed_en.csv")
       logger.info(f"CSV 파일 경로: {csv_path}")
 
       if not os.path.exists(csv_path):
@@ -58,11 +59,11 @@ class FinancialDataService:
     # 결과 형식 변환
     results = []
     for company in search_results["results"]:
-      # 재무 데이터 추출
+      # 재무 데이터 추출 - 모든 메타데이터 포함
       financial_data = {}
       for key, value in company["metadata"].items():
-        if key in ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']:
-          financial_data[key] = value
+        # 모든 재무 데이터 및 파생변수 포함 (필터링 제거)
+        financial_data[key] = value
 
       result = {
           "company_name": company["corp_name"],
@@ -105,11 +106,11 @@ class FinancialDataService:
     # 결과 형식 변환
     results = []
     for company in filter_results["results"]:
-      # 재무 데이터 추출
+      # 재무 데이터 추출 - 모든 메타데이터 포함
       financial_data = {}
       for key, value in company["metadata"].items():
-        if key in ['매출액', '영업이익', '당기순이익', '총자산', '총부채', '자본총계', 'ROA', 'ROE', '부채비율', '매출총자산회전율']:
-          financial_data[key] = value
+        # 모든 재무 데이터 및 파생변수 포함 (필터링 제거)
+        financial_data[key] = value
 
       result = {
           "company_name": company["corp_name"],
