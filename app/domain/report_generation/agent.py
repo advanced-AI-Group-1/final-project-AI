@@ -31,6 +31,12 @@ class ReportAgent:
     # 로거 설정
     self.logger = logging.getLogger(__name__)
     self.logger.setLevel(logging.INFO)
+    
+    # LLM 모델 정보 로깅
+    self.logger.info("ReportAgent 초기화 중...")
+    self.logger.info(f"사용 중인 LLM 모델: {self.llm_manager.default_model}")
+    self.logger.info(f"LLM 온도(temperature) 설정: {self.llm_manager.temperature}")
+    self.logger.info(f"최대 토큰 수: {self.llm_manager.max_tokens}")
   
   async def _call_llm(self, prompt: str) -> str:
     """LLM을 호출하여 응답을 생성합니다."""
@@ -161,8 +167,64 @@ class ReportAgent:
     # LLM 호출
     summary_card = await self._call_llm(prompt)
     
+    # 구조화된 데이터 추출을 위한 프롬프트 구성
+    structured_prompt = """
+    다음 요약 카드에서 정보를 추출하여 JSON 형식으로 반환해주세요:
+    
+    ```
+    {summary_card}
+    ```
+    
+    다음 형식으로 반환해주세요:
+    ```json
+    {{
+      "company_name": "기업명",
+      "evaluation_date": "평가일자",
+      "credit_rating": "신용등급",
+      "strengths": ["강점1", "강점2", "강점3"],
+      "weaknesses": ["약점1", "약점2", "약점3"],
+      "financial_metrics": {{
+        "roa": {{"value": 0.0, "evaluation": "평가"}},
+        "roe": {{"value": 0.0, "evaluation": "평가"}},
+        "debt_ratio": {{"value": 0.0, "evaluation": "평가"}},
+        "operating_profit_margin": {{"value": 0.0, "evaluation": "평가"}}
+      }},
+      "credit_rating_trend": {{
+        "direction": "상향/유지/하향",
+        "reason": "이유"
+      }},
+      "financial_stability": "Strong/Moderate/Weak",
+      "business_risk": "Strong/Moderate/Weak",
+      "industry_outlook": "Stable/Positive/Negative"
+    }}
+    ```
+    
+    JSON 형식만 반환하고, 다른 설명은 포함하지 마세요.
+    """.format(summary_card=summary_card)
+    
+    # LLM 호출하여 구조화된 데이터 추출
+    structured_data_str = await self._call_llm(structured_prompt)
+    
+    # JSON 문자열에서 실제 JSON 부분만 추출
+    try:
+      # JSON 부분만 추출하기 위한 정규식
+      import re
+      json_match = re.search(r'```json\s*([\s\S]*?)\s*```', structured_data_str)
+      if json_match:
+          json_str = json_match.group(1)
+      else:
+          json_str = structured_data_str
+      
+      # 추출된 문자열을 JSON으로 파싱
+      import json
+      structured_data = json.loads(json_str)
+    except Exception as e:
+      self.logger.error(f"구조화된 데이터 파싱 오류: {e}")
+      structured_data = {}
+    
     # 상태 업데이트
     state["summary_card"] = summary_card
+    state["summary_card_structured"] = structured_data
     
     return state
   

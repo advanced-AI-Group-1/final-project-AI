@@ -18,14 +18,11 @@ SUMMARY_CARD_PROMPT = """
 
 다음 형식으로 작성해주세요:
 
-## 📘 신용분석 요약 카드
+## 신용분석 요약 카드
 
 기업명: {company_name}
 평가일자: {evaluation_date}
-신용등급: [등급] (예: AA+)
-
-현재 등급 요약: 
-[등급의 핵심 의미와 배경]
+신용등급: [등급] (예: A)
 
 주요 강점 키워드: 
 [키워드1], [키워드2], [키워드3]
@@ -41,6 +38,10 @@ SUMMARY_CARD_PROMPT = """
 
 신용등급 변동 가능성:
 [상향/유지/하향] 가능성이 높으며, 그 이유는 [간략한 이유]입니다.
+
+재무 건전성: [Strong/Moderate/Weak]
+사업 위험: [Strong/Moderate/Weak]
+산업 전망: [Stable/Positive/Negative]
 """
 
 # 재무분석 섹션 프롬프트 템플릿

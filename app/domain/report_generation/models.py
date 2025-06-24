@@ -68,6 +68,7 @@ class ReportState(BaseModel):
   sections: List[Dict[str, Any]]  # 보고서 섹션
   additional_ratios: Dict[str, float] = {}  # 추가 계산된 비율들
   summary_card: str = ""  # 1페이지 요약 카드
+  summary_card_structured: Dict[str, Any] = {}  # 구조화된 요약 카드 데이터
   detailed_report: str = ""  # 상세 풀 리포트
   current_section_index: int = 0
   all_analysis_done: bool = False
