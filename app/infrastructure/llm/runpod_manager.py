@@ -6,6 +6,10 @@ import aiohttp
 import asyncio
 from fastapi import HTTPException, BackgroundTasks
 from app.infrastructure.storage.result_storage import ResultStorage
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 
 class RunPodLLMManager:
@@ -19,8 +23,12 @@ class RunPodLLMManager:
     if not self.api_key:
       raise ValueError("RUNPOD_API_KEY 환경 변수가 설정되지 않았습니다.")
 
+    # 환경 변수에서 RunPod 엔드포인트 ID 가져오기
+    self.endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
+    if not self.endpoint_id:
+      raise ValueError("RUNPOD_ENDPOINT_ID 환경 변수가 설정되지 않았습니다.")
+
     # RunPod 엔드포인트 설정
-    self.endpoint_id = "5msm1gz3r8qgs8"  # 요청에 명시된 엔드포인트 ID
     self.base_url = f"https://api.runpod.ai/v2/{self.endpoint_id}"
     self.run_url = f"{self.base_url}/run"
     self.status_url = f"{self.base_url}/status"

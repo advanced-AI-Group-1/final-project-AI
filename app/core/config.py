@@ -2,6 +2,10 @@ from pydantic_settings import BaseSettings
 from typing import List, Optional
 import os
 from functools import lru_cache
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 class Settings(BaseSettings):
     """
@@ -21,11 +25,14 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     
     # 벡터 저장소 설정
-    VECTOR_STORE_PATH: str = "data/vector_store"
+    VECTOR_STORE_PATH: str = os.getenv("VECTOR_STORE_PATH", "data/vector_store")
     
     # LLM 설정
-    DEFAULT_LLM_MODEL: str = "gpt-4"
-    LLM_TEMPERATURE: float = 0.2
+    DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "gpt-4.1-mini")
+    LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
+    
+    # RunPod API 키
+    RUNPOD_API_KEY: Optional[str] = os.getenv("RUNPOD_API_KEY")
     
     class Config:
         env_file = ".env"

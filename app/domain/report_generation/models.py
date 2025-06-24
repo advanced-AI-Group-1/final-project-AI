@@ -68,10 +68,14 @@ class ReportState(BaseModel):
   sections: List[Dict[str, Any]]  # 보고서 섹션
   additional_ratios: Dict[str, float] = {}  # 추가 계산된 비율들
   summary_card: str = ""  # 1페이지 요약 카드
+  summary_card_structured: Dict[str, Any] = {}  # 구조화된 요약 카드 데이터
   detailed_report: str = ""  # 상세 풀 리포트
   current_section_index: int = 0
   all_analysis_done: bool = False
   next: Optional[str] = None  # LangGraph 워크플로우에서 다음 노드를 지정하기 위한 필드
+  review_results: List[Dict[str, Any]] = []  # 섹션 검증 결과
+  sections_to_regenerate: List[int] = []  # 재생성이 필요한 섹션 인덱스 목록
+  regeneration_mode: bool = False  # 재생성 모드 여부
   
   # 딕셔너리처럼 접근할 수 있도록 메서드 추가
   def __getitem__(self, key):
