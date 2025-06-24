@@ -18,24 +18,22 @@ class LLMManager:
         # OpenAI 클라이언트 초기화
         self.client = AsyncOpenAI(api_key=self.api_key)
         
-        # 환경 변수에서 모델 설정 가져오기
-        self.default_model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4")
-        self.temperature = float(os.getenv("LLM_TEMPERATURE", "0.2"))
-        self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "2000"))
+        # 기본 모델 설정
+        self.default_model = "gpt-4"
         
     async def generate_response(
         self, 
         prompt: str, 
         model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None
+        temperature: float = 0.2,
+        max_tokens: int = 2000
     ) -> str:
         """
         LLM을 사용하여 프롬프트에 대한 응답을 생성합니다.
         
         Args:
             prompt (str): LLM에 전달할 프롬프트
-            model (Optional[str]): 사용할 모델 (기본값: .env에서 설정한 값)
+            model (Optional[str]): 사용할 모델 (기본값: gpt-4)
             temperature (float): 생성 다양성 조절 (0.0 ~ 1.0)
             max_tokens (int): 최대 생성 토큰 수
             
@@ -45,8 +43,6 @@ class LLMManager:
         try:
             # 사용할 모델 설정
             model_name = model or self.default_model
-            temp = temperature if temperature is not None else self.temperature
-            tokens = max_tokens or self.max_tokens
             
             # OpenAI API 호출
             response = await self.client.chat.completions.create(
@@ -55,8 +51,8 @@ class LLMManager:
                     {"role": "system", "content": "당신은 금융 및 신용평가 전문가입니다. 정확하고 객관적인 분석을 제공합니다."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=temp,
-                max_tokens=tokens
+                temperature=temperature,
+                max_tokens=max_tokens
             )
             
             # 응답 텍스트 추출
@@ -71,7 +67,7 @@ class LLMManager:
         prompt: str, 
         output_schema: Dict[str, Any],
         model: Optional[str] = None,
-        temperature: Optional[float] = None
+        temperature: float = 0.2
     ) -> Dict[str, Any]:
         """
         구조화된 형식으로 LLM 응답을 생성합니다.
@@ -88,7 +84,6 @@ class LLMManager:
         try:
             # 사용할 모델 설정
             model_name = model or self.default_model
-            temp = temperature if temperature is not None else self.temperature
             
             # 스키마를 포함한 프롬프트 구성
             schema_prompt = f"""
