@@ -19,10 +19,13 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
     
     # 데이터베이스 설정
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/finance_ai.db")
+    # DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/finance_ai.db")
     
     # OpenAI API 키
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+
+    # Qdrant API 키
+    QDRANT_API_KEY: Optional[str] = os.getenv("QDRANT_API_KEY")
     
     # 벡터 저장소 설정
     VECTOR_STORE_PATH: str = os.getenv("VECTOR_STORE_PATH", "data/vector_store")
@@ -33,10 +36,19 @@ class Settings(BaseSettings):
     
     # RunPod API 키
     RUNPOD_API_KEY: Optional[str] = os.getenv("RUNPOD_API_KEY")
-    
+
+    RUNPOD_ENDPOINT_ID: Optional[str] = os.getenv("RUNPOD_ENDPOINT_ID")
+
+    # VOYAGE API 키
+    VOYAGE_API_KEY: Optional[str] = os.getenv("VOYAGE_API_KEY")
+
+    # TAVILY API 키
+    TAVILY_API_KEY: Optional[str] = os.getenv("TAVILY_API_KEY")
+
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 @lru_cache()
 def get_settings() -> Settings:

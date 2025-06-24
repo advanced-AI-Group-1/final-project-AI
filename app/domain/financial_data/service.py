@@ -33,7 +33,7 @@ class FinancialDataService:
       logger.info("벡터 스토어 구축 시작")
       self.vector_store.build_vector_store(csv_path=csv_path,
                                            collection_name="korean_financial_data",
-                                           embedding_model="voyage-3")
+                                           embedding_model="voyage-finance-2")
       logger.info("벡터 스토어 구축 완료")
       return True
     except Exception as e:
@@ -54,7 +54,7 @@ class FinancialDataService:
     # 벡터 저장소에서 유사한 회사 검색
     search_results = await self.vector_store.search_similar_companies(query=prompt,
                                                                       n_results=top_k,
-                                                                      embedding_model="voyage-3")
+                                                                      embedding_model="voyage-finance-2")
 
     # 결과 형식 변환
     results = []
