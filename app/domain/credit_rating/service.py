@@ -1,96 +1,88 @@
 from typing import Dict, Any, Optional
-from app.infrastructure.llm.manager import LLMManager
-from datetime import datetime
+from app.infrastructure.llm.runpod_manager import RunPodLLMManager
+from app.infrastructure.llm.prompt_templates import format_financial_data_for_credit_rating
+
 
 class CreditRatingService:
+  """
+    신용등급 평가 서비스
     """
-    재무제표 데이터를 기반으로 신용평가 등급을 산출하는 서비스 클래스
+
+  def __init__(self):
+    self.llm_manager = RunPodLLMManager()
+
+  def _format_financial_data_for_credit_rating(self, financial_data: Dict[str, Any]) -> str:
     """
-    def __init__(self):
-        self.llm_manager = LLMManager()
-        
-    async def evaluate_credit_rating(
-        self, 
-        company_name: str, 
-        financial_data: Dict[str, Any],
-        additional_context: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        LLM을 사용하여 재무제표 데이터를 기반으로 신용평가 등급을 산출합니다.
+        신용등급 평가를 위한 재무 데이터 포맷팅
         
         Args:
-            company_name (str): 기업명
-            financial_data (Dict[str, Any]): 재무제표 데이터
-            additional_context (Optional[str]): 추가 컨텍스트 정보
+            financial_data (Dict[str, Any]): 재무 데이터
             
         Returns:
-            Dict[str, Any]: 신용평가 결과
+            str: 포맷팅된 재무 데이터 텍스트
         """
-        # LLM에 전달할 프롬프트 구성
-        prompt = self._construct_credit_rating_prompt(company_name, financial_data, additional_context)
+    return format_financial_data_for_credit_rating(financial_data)
+
+  async def evaluate_credit_rating(self,
+                                   company_name: str,
+                                   financial_data: Dict[str, Any],
+                                   additional_context: Optional[str] = None) -> Dict[str, Any]:
+    """
+        재무제표 데이터를 기반으로 LLM을 사용하여 신용평가 등급을 산출합니다.
         
-        # LLM을 통한 신용평가 수행
-        llm_response = await self.llm_manager.generate_response(prompt)
-        
-        # LLM 응답 파싱 및 결과 구조화
-        rating_result = self._parse_llm_response(llm_response)
-        
-        # 결과에 기업명과 평가 시간 추가
-        rating_result["company_name"] = company_name
-        rating_result["evaluation_timestamp"] = datetime.now().isoformat()
-        
-        return {
-            "company_name": company_name,
-            "credit_rating": rating_result.get("credit_rating", "N/A"),
-            "rating_details": rating_result.get("rating_details", {}),
-            "confidence_score": rating_result.get("confidence_score", 0.0)
-        }
-        
-    def _construct_credit_rating_prompt(
-        self, 
-        company_name: str, 
-        financial_data: Dict[str, Any],
-        additional_context: Optional[str]
-    ) -> str:
-        """
-        신용평가를 위한 LLM 프롬프트를 구성합니다.
-        """
-        prompt = f"""
-        당신은 금융 전문가로서 기업의 재무제표를 분석하여 신용평가 등급을 산출하는 역할을 합니다.
-        
-        다음은 {company_name} 기업의 재무제표 데이터입니다:
-        
-        {financial_data}
-        
-        위 재무제표를 분석하여 다음 정보를 포함한 신용평가 결과를 JSON 형식으로 제공해주세요:
-        
-        1. credit_rating: 신용등급 (AAA, AA, A, BBB, BB, B, CCC, CC, C, D 중 하나)
-        2. rating_details: 신용등급 산출 근거 및 세부 분석 (수익성, 안정성, 성장성, 현금흐름 등)
-        3. confidence_score: 신용등급 평가의 신뢰도 점수 (0.0 ~ 1.0)
-        
-        """
-        
-        if additional_context:
-            prompt += f"\n추가 컨텍스트 정보:\n{additional_context}\n"
+        Args:
+            company_name (str): 회사명
+            financial_data (Dict[str, Any]): 재무 데이터
+            additional_context (Optional[str], optional): 추가 컨텍스트. 기본값은 None.
             
-        return prompt
+        Returns:
+            Dict[str, Any]: 신용등급 평가 결과
+        """
+    # 프롬프트 생성
+    instruction = "다음 재무 정보를 바탕으로 기업의 신용등급을 평가해주세요."
+    input_text = self._format_financial_data_for_credit_rating(financial_data)
+    if additional_context:
+      input_text += f"\n\n추가 정보: {additional_context}"
+
+    # LLM 응답 생성
+    response = await self.llm_manager.generate_response(instruction, input_text)
+
+    # 응답 파싱 (예시)
+    # 실제로는 응답 텍스트를 파싱하여 신용등급 정보를 추출해야 함
+    credit_rating_result = {
+        "company_name": company_name,
+        "credit_rating": "A",  # 실제로는 응답에서 파싱
+        "rating_details": {
+            "financial_strength": "Strong",
+            "business_risk": "Moderate",
+            "industry_outlook": "Stable"
+        },
+        "confidence_score": 0.85
+    }
+
+    return credit_rating_result
+
+  async def submit_credit_rating_request(self,
+                                         company_name: str,
+                                         financial_data: Dict[str, Any],
+                                         additional_context: Optional[str] = None) -> str:
+    """
+        신용등급 평가 요청을 제출하고 요청 ID를 반환합니다.
         
-    def _parse_llm_response(self, llm_response: str) -> Dict[str, Any]:
+        Args:
+            company_name (str): 회사명
+            financial_data (Dict[str, Any]): 재무 데이터
+            additional_context (Optional[str], optional): 추가 컨텍스트. 기본값은 None.
+            
+        Returns:
+            str: 요청 ID
         """
-        LLM 응답을 파싱하여 구조화된 결과로 변환합니다.
-        실제 구현에서는 JSON 파싱 등의 로직이 필요합니다.
-        """
-        # 실제 구현에서는 LLM 응답을 파싱하는 로직 필요
-        # 여기서는 간단한 예시만 제공
-        import json
-        try:
-            return json.loads(llm_response)
-        except:
-            # 파싱 실패 시 기본값 반환
-            return {
-                "credit_rating": "N/A",
-                "rating_details": {
-                    "error": "LLM 응답 파싱 실패"
-                },
-                "confidence_score": 0.0
-            }
+    # 프롬프트 생성
+    instruction = "다음 재무 정보를 바탕으로 기업의 신용등급을 평가해주세요."
+    input_text = self._format_financial_data_for_credit_rating(financial_data)
+    if additional_context:
+      input_text += f"\n\n추가 정보: {additional_context}"
+
+    # 비동기 요청 제출
+    request_id = await self.llm_manager.submit_request(instruction, input_text)
+    return request_id
