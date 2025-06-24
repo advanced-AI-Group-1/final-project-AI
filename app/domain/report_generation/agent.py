@@ -493,7 +493,7 @@ class ReportAgent:
         
         # 방법 3: '평가' 또는 '점수' 단어가 포함된 줄에서 1-10 사이의 숫자 찾기
         if score is None:
-          evaluation_lines = [line for line in review_result.split('\n')
+          evaluation_lines = [line for line in review_result.split('\n') 
                              if '평가' in line or '점수' in line or '평점' in line or '종합' in line]
           
           for line in evaluation_lines:
@@ -565,6 +565,7 @@ class ReportAgent:
   
   async def _compile_report(self, state: Dict[str, Any]) -> Dict[str, Any]:
     """최종 보고서를 컴파일합니다."""
+    self.logger.info("현재 노드: compile_report")
     sections = state["sections"]
     summary_card = state["summary_card"]
     
