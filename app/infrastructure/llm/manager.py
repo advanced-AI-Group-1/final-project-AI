@@ -19,7 +19,7 @@ class LLMManager:
         self.client = AsyncOpenAI(api_key=self.api_key)
         
         # 환경 변수에서 모델 설정 가져오기
-        self.default_model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4")
+        self.default_model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4.1-mini")
         self.temperature = float(os.getenv("LLM_TEMPERATURE", "0.2"))
         self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "2000"))
         
