@@ -4,6 +4,7 @@ FastAPI 애플리케이션을 Gunicorn으로 실행하기 위한 스크립트
 """
 import os
 import subprocess
+import sys
 
 
 def run_server():
@@ -16,7 +17,7 @@ def run_server():
   # Gunicorn 명령어 구성
   cmd = [
       "gunicorn",
-      "app.main:app",
+      "main:app",
       "-c",
       "gunicorn_conf.py",
   ]

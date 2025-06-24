@@ -194,7 +194,7 @@ cython_debug/
 .cursorindexingignore
 /.idea
 !/.env
-#!/tests/
-#/tests
+!/tests/
+/tests
 .env
 .env.development

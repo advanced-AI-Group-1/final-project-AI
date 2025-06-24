@@ -1,0 +1,3 @@
+@echo off
+echo FastAPI 애플리케이션을 Gunicorn으로 실행합니다...
+python run.py
