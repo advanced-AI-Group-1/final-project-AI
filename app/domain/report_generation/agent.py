@@ -32,7 +32,7 @@ class ReportAgent:
     self.logger = logging.getLogger(__name__)
     self.logger.setLevel(logging.INFO)
     
-    # LLM 모델 정보 로깅
+    # LLM 모델 정보 로깅2
     self.logger.info("ReportAgent 초기화 중...")
     self.logger.info(f"사용 중인 LLM 모델: {self.llm_manager.default_model}")
     self.logger.info(f"LLM 온도(temperature) 설정: {self.llm_manager.temperature}")
