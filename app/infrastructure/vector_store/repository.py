@@ -1,3 +1,5 @@
+#region legacy code
+
 # import logging
 # import os
 # from typing import List, Dict, Optional
@@ -210,7 +212,7 @@
 #     logger.info(f"총 {len(texts)}개 레코드가 성공적으로 저장되었습니다.")
 #     return self.collection
 
-#   async def search_similar_companies(self, query: str, n_results: int = 5, embedding_model: str = "voyage-3"):
+#   async def search_similar_companies(self, query: str, n_results: int = 8, embedding_model: str = "voyage-3"):
 #     """
 #             쿼리와 유사한 회사 검색
             
@@ -277,7 +279,7 @@
 #                           industry: str = None,
 #                           min_revenue: float = None,
 #                           max_debt_ratio: float = None,
-#                           n_results: int = 5):
+#                           n_results: int = 8):
 #     """
 #             조건부 필터링 검색
             
@@ -348,16 +350,13 @@
 #         "results": formatted_results
 #     }
 
-
-# ✅ Qdrant 기반으로 완전히 새로 작성된 VectorStoreRepository
+#endregion
 
 import logging
-import os
-from typing import List, Dict, Optional
+from typing import Optional
 
-import pandas as pd
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, VectorParams, Filter, FieldCondition, MatchValue, Range
+from qdrant_client.http.models import Filter, FieldCondition, MatchValue, Range
 from voyageai import Client as VoyageClient
 from dotenv import load_dotenv
 
@@ -365,33 +364,60 @@ from app.core.config import settings
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
-load_dotenv()
 
 
+# ✅ 사용자 조건에 따라 Qdrant 필터 객체 생성
+def build_filter_from_user_query(industry: Optional[str] = None,
+                                 conditions_dict: Optional[dict] = None) -> Optional[Filter]:
+    conditions = []
+
+    if industry:
+        conditions.append(FieldCondition(
+            key="industry_name", match=MatchValue(value=industry)
+        ))
+
+    if conditions_dict:
+        for key, value in conditions_dict.items():
+            if value is None:
+                continue
+
+            if key.startswith("min_"):
+                field = key.replace("min_", "")
+                conditions.append(FieldCondition(
+                    key=field,
+                    range=Range(gte=value)
+                ))
+            elif key.startswith("max_"):
+                field = key.replace("max_", "")
+                conditions.append(FieldCondition(
+                    key=field,
+                    range=Range(lte=value)
+                ))
+
+    return Filter(must=conditions) if conditions else None
+
+
+# ✅ Qdrant + Voyage 기반 벡터 검색 리포지토리
 class VectorStoreRepository:
     def __init__(self):
-        # Qdrant 클라이언트 초기화
         self.qdrant = QdrantClient(
             url=settings.VECTOR_STORE_PATH,
             api_key=settings.QDRANT_API_KEY,
             prefer_grpc=False
         )
-
-        # VoyageAI 클라이언트
         self.voyage = VoyageClient(api_key=settings.VOYAGE_API_KEY)
-        self.collection_name = "korean_financial_data"
+        self.collection_name = "financial_data"
 
-    async def search_similar_companies(self, query: str, n_results: int = 5, embedding_model: str = "voyage-finance-2"):
+    # ✅ 1. 유사도 기반 검색
+    async def search_similar_companies(self, query: str, n_results: int = 8, embedding_model: str = "voyage-finance-2"):
         logger.info(f"쿼리: {query} → 유사 기업 검색 중...")
 
-        # Voyage 임베딩 생성
         query_embedding = self.voyage.embed(
             texts=[query],
             model=embedding_model,
             input_type="query"
         ).embeddings[0]
 
-        # Qdrant 벡터 검색
         result = self.qdrant.search(
             collection_name=self.collection_name,
             query_vector=query_embedding,
@@ -413,32 +439,20 @@ class VectorStoreRepository:
             ]
         }
 
-    async def filter_search(self,
-                            industry: Optional[str] = None,
-                            min_revenue: Optional[float] = None,
-                            max_debt_ratio: Optional[float] = None,
-                            n_results: int = 5):
+    # ✅ 2. 조건 기반 필터 검색
+    async def filter_search(
+        self,
+        industry: Optional[str] = None,
+        conditions_dict: Optional[dict] = None,
+        n_results: int = 8
+    ):
         logger.info("필터 기반 검색 시작")
+        
 
-        # 조건 필터 구성
-        conditions = []
-        if industry:
-            conditions.append(FieldCondition(
-                key="industry_name", match=MatchValue(value=industry)
-            ))
-        if min_revenue:
-            conditions.append(FieldCondition(
-                key="revenue", range=Range(gte=min_revenue)
-            ))
-        if max_debt_ratio:
-            conditions.append(FieldCondition(
-                key="debt_ratio", range=Range(lte=max_debt_ratio)
-            ))
+        q_filter = build_filter_from_user_query(industry, conditions_dict)
+        dummy_vector = [0.0] * 1024  # 임시 쿼리 벡터
 
-        q_filter = Filter(must=conditions) if conditions else None
-
-        # 더미 쿼리 벡터 (임베딩 없이 필터 검색용)
-        dummy_vector = [0.0] * 1024
+        logger.info(f"[Qdrant 필터 객체] {q_filter}")
 
         result = self.qdrant.search(
             collection_name=self.collection_name,
@@ -451,8 +465,52 @@ class VectorStoreRepository:
         return {
             "filter_criteria": {
                 "industry": industry,
-                "min_revenue": min_revenue,
-                "max_debt_ratio": max_debt_ratio
+                "conditions": conditions_dict
+            },
+            "results": [
+                {
+                    "corp_code": r.payload.get("corp_code"),
+                    "corp_name": r.payload.get("corp_name"),
+                    "market_type": r.payload.get("market_type"),
+                    "industry_name": r.payload.get("industry_name"),
+                    "similarity": r.score,
+                    "metadata": r.payload
+                } for r in result
+            ]
+        }
+
+    # ✅ 3. 유사도 + 필터 조합 검색
+    async def search_similar_companies_with_filter(
+        self,
+        query: str,
+        industry: Optional[str] = None,
+        conditions_dict: Optional[dict] = None,
+        n_results: int = 8,
+        embedding_model: str = "voyage-finance-2"
+    ):
+        logger.info(f"쿼리: {query} → 유사도 + 필터 검색 시작")
+
+        query_embedding = self.voyage.embed(
+            texts=[query],
+            model=embedding_model,
+            input_type="query"
+        ).embeddings[0]
+
+        q_filter = build_filter_from_user_query(industry, conditions_dict)
+
+        result = self.qdrant.search(
+            collection_name=self.collection_name,
+            query_vector=query_embedding,
+            query_filter=q_filter,
+            limit=n_results,
+            with_payload=True
+        )
+
+        return {
+            "query": query,
+            "filter_criteria": {
+                "industry": industry,
+                "conditions": conditions_dict
             },
             "results": [
                 {
