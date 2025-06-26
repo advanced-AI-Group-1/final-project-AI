@@ -13,14 +13,14 @@ router = APIRouter()
 
 class PromptRequest(BaseModel):
   prompt: str
-  top_k: int = 5  # 유사도 기준으로 상위 몇 개의 기업 데이터를 반환할지
+  top_k: int = 8  # 유사도 기준으로 상위 몇 개의 기업 데이터를 반환할지
 
 
 class FilterRequest(BaseModel):
   industry: Optional[str] = None
   min_revenue: Optional[float] = None
   max_debt_ratio: Optional[float] = None
-  top_k: int = 5
+  top_k: int = 8
 
 
 class FinancialDataResponse(BaseModel):
