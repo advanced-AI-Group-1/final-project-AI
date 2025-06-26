@@ -3,7 +3,7 @@ name: Docker Build and Push
 on:
   push:
     branches:
-      - CICD  # change to your main branch name
+      - dev  # change to your main branch name
 
 jobs:
   build-and-push:
