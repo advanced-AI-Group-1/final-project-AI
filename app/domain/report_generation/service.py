@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
 
 from app.infrastructure.llm.manager import LLMManager
 from app.domain.report_generation.agent import ReportAgent
