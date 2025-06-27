@@ -26,7 +26,7 @@ class FilterRequest(BaseModel):
 class FinancialDataResponse(BaseModel):
   company_name: str
   similarity_score: float
-  financial_statements: Dict[str, Any]
+  financial_data: Dict[str, Any]
 
 
 class InitVectorStoreRequest(BaseModel):

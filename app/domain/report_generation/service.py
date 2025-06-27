@@ -1,10 +1,14 @@
 from datetime import datetime
+import logging
 from typing import Dict, Any, Optional, List
 
 from app.domain.report_generation.agent import ReportAgent
 from app.domain.report_generation.templates import format_report_data
 from app.infrastructure.llm.manager import LLMManager
+from app.utils.financial_utils import normalize_unit
+from app.utils.logging_utils import log_to_file
 
+logger = logging.getLogger(__name__)
 
 class ReportGenerationService:
   """
@@ -19,8 +23,7 @@ class ReportGenerationService:
       company_name: str,
       credit_rating_result: Dict[str, Any],
       financial_data: Dict[str, Any],
-      report_type: str = "agent_based",
-      additional_context: Optional[str] = None) -> Dict[str, Any]:
+      report_type: str = "agent_based") -> Dict[str, Any]:
     """
     AI 에이전트를 통해 보고서를 생성합니다.
 
@@ -29,25 +32,33 @@ class ReportGenerationService:
         credit_rating_result (Dict[str, Any]): 신용평가 결과
         financial_data (Dict[str, Any]): 재무제표 데이터
         report_type (str): 보고서 유형 (standard, detailed, executive_summary 등)
-        additional_context (Optional[str]): 추가 컨텍스트 정보
 
     Returns:
         Dict[str, Any]: 생성된 보고서
     """
+    # 재무 데이터 단위 표준화
+    normalized_financial_data = normalize_unit(financial_data)
+    
     # 보고서 유형에 따라 다른 생성 방식 사용
     if report_type == "agent_based":
       return await self.generate_agent_based_report(company_name,
                                                     credit_rating_result,
-                                                    financial_data)
+                                                    normalized_financial_data)
 
     # 기존 방식으로 보고서 생성
     # 보고서 생성을 위한 프롬프트 구성
     prompt = self._construct_report_prompt(company_name, credit_rating_result,
-                                           financial_data, report_type,
-                                           additional_context)
+                                           normalized_financial_data, report_type)
+
+    # 프롬프트 로깅
+    unit = normalized_financial_data.get('unit', '억원')
+    log_to_file(prompt, 'prompt', 'report_generation', company_name, unit)
 
     # LLM을 통한 보고서 생성
     report_content = await self.llm_manager.generate_response(prompt)
+    
+    # 응답 로깅
+    log_to_file(report_content, 'response', 'report_generation', company_name, unit)
 
     # 보고서 섹션 분리 및 구조화
     report_sections = self._parse_report_sections(report_content)
@@ -91,10 +102,22 @@ class ReportGenerationService:
     Returns:
         Dict[str, Any]: 생성된 보고서
     """
+    # 단위 정보 로깅을 위해 추출
+    unit = financial_data.get('unit', '억원')
+    
+    # 에이전트를 통한 보고서 생성 시작 로깅
+    logger.info(f"에이전트 기반 보고서 생성 시작: {company_name}")
+    
     # 에이전트를 통한 보고서 생성
     report_result = await self.report_agent.generate_report(company_name,
-                                                            credit_rating_result,
-                                                            financial_data)
+                                                          credit_rating_result,
+                                                          financial_data)
+    
+    # 에이전트 기반 보고서 생성 결과 로깅
+    if "detailed_report" in report_result:
+        log_to_file(report_result["detailed_report"], 'report', 'report_generation', company_name, unit, 'agent_based')
+    
+    logger.info(f"에이전트 기반 보고서 생성 완료: {company_name}")
 
     # 보고서 데이터 포맷팅
     report_data = format_report_data(
@@ -128,7 +151,7 @@ class ReportGenerationService:
   def _construct_report_prompt(self, company_name: str,
       credit_rating_result: Dict[str, Any], financial_data: Dict[str,
       Any],
-      report_type: str, additional_context: Optional[str]) -> str:
+      report_type: str) -> str:
     """
     보고서 생성을 위한 LLM 프롬프트를 구성합니다.
     """
@@ -172,9 +195,6 @@ class ReportGenerationService:
         
         각 섹션은 명확하게 구분되어야 하며, 섹션 제목을 포함해주세요.
         """
-
-    if additional_context:
-      prompt += f"\n## 추가 정보\n{additional_context}\n"
 
     return prompt
 

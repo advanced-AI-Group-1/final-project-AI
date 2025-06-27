@@ -202,8 +202,49 @@ class RunPodLLMManager:
       print(f"RunPod LLM 요청 제출 중 오류 발생: {str(e)}")
       raise HTTPException(status_code=500, detail=f"RunPod LLM 오류: {str(e)}")
 
+  async def request(self, prompt: str) -> str:
+    """
+    프롬프트를 받아 RunPod API를 통해 LLM 응답을 생성합니다.
+    
+    Args:
+        prompt (str): 프롬프트 텍스트
+        
+    Returns:
+        str: LLM이 생성한 응답
+    """
+    try:
+      # RunPod API에 요청 보내기
+      request_result = await self._send_request(prompt)
+      request_id = request_result.get("id")
+
+      if not request_id:
+        raise HTTPException(status_code=500, detail="RunPod 요청 ID를 받지 못했습니다.")
+
+      # 결과 폴링
+      result = await self._poll_for_result(request_id)
+
+      # 응답 추출
+      output = result.get("output", [])
+      if not output or not isinstance(output, list) or len(output) == 0:
+        raise HTTPException(status_code=500, detail="RunPod 응답에서 출력을 찾을 수 없습니다.")
+
+      choices = output[0].get("choices", [])
+      if not choices or len(choices) == 0:
+        raise HTTPException(status_code=500, detail="RunPod 응답에서 선택 항목을 찾을 수 없습니다.")
+
+      tokens = choices[0].get("tokens", [])
+      if not tokens or len(tokens) == 0:
+        raise HTTPException(status_code=500, detail="RunPod 응답에서 토큰을 찾을 수 없습니다.")
+
+      # 첫 번째 토큰이 응답 텍스트
+      return tokens[0]
+
+    except Exception as e:
+      print(f"RunPod LLM 응답 생성 중 오류 발생: {str(e)}")
+      raise HTTPException(status_code=500, detail=f"RunPod LLM 오류: {str(e)}")
+
   async def process_request_background(self, request_id: str, company_name: str, financial_data: Dict[str,
-                                                                                                      Any]) -> None:
+                                                                                                    Any]) -> None:
     """
     백그라운드에서 RunPod API 요청을 처리합니다.
     
@@ -238,21 +279,12 @@ class RunPodLLMManager:
       # 응답 텍스트 추출
       response_text = tokens[0]
 
-      # 신용등급 결과 파싱 (예시)
+      # 신용등급 결과 파싱
       try:
-        # 여기서는 간단한 예시로 구현
-        # 실제로는 응답 텍스트를 파싱하여 신용등급 정보를 추출해야 함
-        credit_rating_result = {
-            "company_name": company_name,
-            "credit_rating": "A",  # 실제로는 응답에서 파싱
-            "rating_details": {
-                "financial_strength": "Strong",
-                "business_risk": "Moderate",
-                "industry_outlook": "Stable"
-            },
-            "confidence_score": 0.85,
-            "raw_response": response_text
-        }
+        # CreditRatingService의 파싱 메서드 사용
+        from app.domain.credit_rating.service import CreditRatingService
+        credit_rating_service = CreditRatingService()
+        credit_rating_result = credit_rating_service._parse_credit_rating_response(response_text, company_name)
 
         # 결과 저장
         self.result_storage.store_result(request_id, {

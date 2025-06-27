@@ -6,6 +6,7 @@ import os
 import re
 from datetime import datetime
 from typing import Dict, Any
+import time
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
@@ -19,7 +20,7 @@ from app.domain.report_generation.prompts import (SUMMARY_CARD_PROMPT,
                                                   CREDIT_RATING_ANALYSIS_PROMPT,
                                                   CONCLUSION_PROMPT)
 from app.infrastructure.llm.manager import LLMManager
-
+from app.utils.logging_utils import log_to_file
 
 class ReportAgent:
   """
@@ -40,9 +41,34 @@ class ReportAgent:
     self.logger.info(f"LLM 온도(temperature) 설정: {self.llm_manager.temperature}")
     self.logger.info(f"최대 토큰 수: {self.llm_manager.max_tokens}")
   
-  async def _call_llm(self, prompt: str) -> str:
-    """LLM을 호출하여 응답을 생성합니다."""
-    return await self.llm_manager.generate_response(prompt)
+  async def _call_llm(self, prompt: str, section_name: str = "", company_name: str = "") -> str:
+    """
+    LLM을 호출하여 응답을 생성합니다.
+    
+    Args:
+        prompt (str): LLM에 전달할 프롬프트
+        section_name (str, optional): 섹션 이름 (로깅용)
+        company_name (str, optional): 회사명 (로깅용)
+        
+    Returns:
+        str: LLM 응답
+    """
+    # 회사명이 제공된 경우에만 로깅
+    if company_name:
+        # 프롬프트 로깅
+        prefix = f"section_{section_name}" if section_name else "general"
+        log_to_file(prompt, 'prompt', 'report_agent', company_name, '억원', prefix)
+    
+    # LLM 호출
+    response = await self.llm_manager.generate_response(prompt)
+    
+    # 회사명이 제공된 경우에만 로깅
+    if company_name:
+        # 응답 로깅
+        prefix = f"section_{section_name}" if section_name else "general"
+        log_to_file(response, 'response', 'report_agent', company_name, '억원', prefix)
+    
+    return response
   
   def _format_financial_data(self, financial_data: Dict[str, Any]) -> str:
     """재무 데이터를 문자열로 포맷팅합니다."""
@@ -110,6 +136,18 @@ class ReportAgent:
         
         result.append(f"{key_kr}: {value}")
     
+    # 긍정적 요인이 있는 경우 처리
+    if credit_rating and 'positive_factors' in credit_rating and credit_rating['positive_factors']:
+      result.append("\n[긍정적 요인]")
+      for factor in credit_rating['positive_factors']:
+        result.append(f"- {factor}")
+    
+    # 부정적 요인이 있는 경우 처리
+    if credit_rating and 'negative_factors' in credit_rating and credit_rating['negative_factors']:
+      result.append("\n[부정적 요인]")
+      for factor in credit_rating['negative_factors']:
+        result.append(f"- {factor}")
+    
     # confidence_score가 있는 경우에만 처리
     if credit_rating and 'confidence_score' in credit_rating:
       result.append(f"\n신뢰도 점수: {credit_rating.get('confidence_score', 0) * 100:.1f}%")
@@ -176,7 +214,7 @@ class ReportAgent:
       evaluation_date=datetime.now().strftime("%Y년 %m월 %d일"))
     
     # LLM 호출
-    summary_card = await self._call_llm(prompt)
+    summary_card = await self._call_llm(prompt, section_name="요약 카드", company_name=company_data.get("corp_name", ""))
     
     # 구조화된 데이터 추출을 위한 프롬프트 구성
     structured_prompt = """
@@ -214,7 +252,7 @@ class ReportAgent:
     """.format(summary_card=summary_card)
     
     # LLM 호출하여 구조화된 데이터 추출
-    structured_data_str = await self._call_llm(structured_prompt)
+    structured_data_str = await self._call_llm(structured_prompt, section_name="요약 카드 구조화", company_name=company_data.get("corp_name", ""))
     
     # JSON 문자열에서 실제 JSON 부분만 추출
     try:
@@ -388,7 +426,7 @@ class ReportAgent:
       prompt += f"\n\n웹 검색 결과:\n{web_search_result}\n\n위 웹 검색 결과를 참고하여 분석을 더 풍부하게 해주세요."
     
     # LLM 호출
-    section_content = await self._call_llm(prompt)
+    section_content = await self._call_llm(prompt, section_name=current_section['name'], company_name=company_data.get("corp_name", ""))
     
     # 섹션 내용 업데이트
     sections[current_index]["content"] = section_content
@@ -499,7 +537,7 @@ class ReportAgent:
       """
       
       # LLM 호출하여 검증 결과 얻기
-      review_result = await self._call_llm(prompt)
+      review_result = await self._call_llm(prompt, section_name=section['name'], company_name=company_data.get("corp_name", ""))
       
       # 전체 응답 로깅 (디버깅용)
       self.logger.info(f"LLM 응답 (섹션 '{section['name']}'): {review_result[:100]}...")
@@ -613,7 +651,7 @@ class ReportAgent:
           # 로그에서 보이는 응답 형식을 분석해 보니 각 항목별 점수가 높은 편이므로
           # 기본값을 6.0에서 7.5로 상향 조정
           self.logger.warning(f"섹션 '{section['name']}'의 점수를 찾을 수 없어 기본값 7.5를 사용합니다.")
-          self.logger.warning(f"LLM 응답 처음 500자: {review_result[:500]}")
+          self.logger.warning(f"LLM 응답 처음 500자: {review_result[:500]}...")
           score = 7.5  # 기본값 상향 조정
         
         # 결과 저장
@@ -794,6 +832,13 @@ class ReportAgent:
         Returns:
             Dict[str, Any]: 생성된 보고서
         """
+    # 로깅 시작
+    self.logger.info(f"'{company_name}' 기업 보고서 생성 시작")
+    start_time = time.time()
+    
+    # 단위 정보 로깅을 위해 추출
+    unit = financial_data.get('unit', '억원')
+    
     # 초기 상태 생성
     initial_state = self._initialize_state(company_name, credit_rating_result, financial_data)
     
@@ -818,7 +863,8 @@ class ReportAgent:
       
       final_state = await graph.ainvoke(state_dict, config)
       
-      return {
+      # 최종 보고서 생성 결과
+      result = {
         "company_name": company_name,
         "summary_card": final_state["summary_card"],
         "summary_card_structured": final_state.get("summary_card_structured", {}),  # 구조화된 요약 카드 데이터 추가
@@ -827,6 +873,15 @@ class ReportAgent:
         "credit_rating": final_state["credit_rating"],  # 신용등급 정보 추가
         "generated_at": datetime.now().isoformat()
       }
+      
+      # 최종 보고서 로깅
+      log_to_file(final_state["detailed_report"], 'final_report', 'report_agent', company_name, unit)
+      
+      # 로깅 완료
+      end_time = time.time()
+      self.logger.info(f"'{company_name}' 기업 보고서 생성 완료 (소요시간: {end_time - start_time:.2f}초)")
+      
+      return result
     except Exception as e:
-      print(f"보고서 생성 중 오류 발생: {str(e)}")
+      self.logger.error(f"'{company_name}' 기업 보고서 생성 중 오류 발생: {str(e)}")
       raise e

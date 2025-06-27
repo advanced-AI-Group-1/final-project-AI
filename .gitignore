@@ -198,3 +198,6 @@ cython_debug/
 #/tests
 .env
 .env.development
+!/.history/
+!/app/logs/
+/logs

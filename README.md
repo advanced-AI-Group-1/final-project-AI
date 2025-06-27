@@ -73,6 +73,8 @@ pip install -r requirements.txt
 # .env 파일 생성
 OPENAI_API_KEY=your_openai_api_key
 DATABASE_URL=sqlite+aiosqlite:///./data/finance_ai.db
+RUNPOD_API_KEY=your_runpod_api_key
+TAVILY_API_KEY=your_tavily_api_key  # 회사 정보 검색을 위한 Tavily API 키
 ```
 
 3. 서버 실행 방법
