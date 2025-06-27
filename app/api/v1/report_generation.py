@@ -53,6 +53,7 @@ class ReportResponse(BaseModel):
   credit_rating: CreditRatingResult
   generated_at: str
   report_type: str
+  summary_card_structured: Optional[Dict[str, Any]] = None
 
 
 class FinancialDataOnlyRequest(BaseModel):

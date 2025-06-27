@@ -1,0 +1,32 @@
+{
+  "company_name": "삼성전자",
+  "credit_rating_result": {
+    "credit_rating": "AA+",
+    "rating_details": {
+      "financial_strength": "매우 우수",
+      "business_risk": "낮음",
+      "industry_outlook": "안정적"
+    },
+    "confidence_score": 0.95
+  },
+  "financial_data": {
+    "corp_name": "삼성전자",
+    "industry_name": "전자제품 제조업",
+    "market_type": "KOSPI",
+    "revenue": 279600000000000,
+    "operating_profit": 36500000000000,
+    "net_income": 55700000000000,
+    "total_assets": 426600000000000,
+    "total_liabilities": 121900000000000,
+    "total_equity": 304700000000000,
+    "debt_ratio": 0.4,
+    "ROA": 0.13,
+    "ROE": 0.18,
+    "asset_turnover_ratio": 0.65,
+    "cash_flow_from_operation": 76300000000000,
+    "interest_expense": 500000000000,
+    "ebitda": 45000000000000
+  },
+  "report_type": "agent_based",
+  "additional_context": null
+}

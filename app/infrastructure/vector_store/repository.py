@@ -407,6 +407,117 @@ class VectorStoreRepository:
         )
         self.voyage = VoyageClient(api_key=settings.VOYAGE_API_KEY)
         self.collection_name = "financial_data"
+        
+    # ✅ 0. CSV 데이터로 벡터 스토어 초기화
+    def initialize_vector_store(self, csv_path: str) -> bool:
+        """
+        CSV 파일에서 데이터를 읽어 Qdrant 벡터 스토어를 초기화합니다.
+        
+        Args:
+            csv_path: CSV 파일 경로
+            
+        Returns:
+            bool: 초기화 성공 여부
+        """
+        import pandas as pd
+        import numpy as np
+        import os
+        
+        try:
+            logger.info(f"벡터 스토어 초기화 시작 - CSV 파일: {csv_path}")
+            
+            # CSV 파일 존재 확인
+            if not os.path.exists(csv_path):
+                logger.error(f"CSV 파일이 존재하지 않습니다: {csv_path}")
+                return False
+                
+            # CSV 파일 읽기
+            logger.info("CSV 파일 읽는 중...")
+            df = pd.read_csv(csv_path)
+            logger.info(f"CSV 데이터 로드 완료: {len(df)}개 행")
+            
+            # 필수 컬럼 확인
+            required_columns = ['corp_code', 'corp_name', 'market_type', 'industry_name']
+            for col in required_columns:
+                if col not in df.columns:
+                    logger.error(f"필수 컬럼이 없습니다: {col}")
+                    return False
+            
+            # 기존 컬렉션 삭제 (있는 경우)
+            try:
+                logger.info(f"기존 컬렉션 삭제 시도: {self.collection_name}")
+                self.qdrant.delete_collection(collection_name=self.collection_name)
+                logger.info("기존 컬렉션 삭제 완료")
+            except Exception as e:
+                logger.info(f"컬렉션 삭제 중 예외 발생 (무시 가능): {str(e)}")
+            
+            # 새 컬렉션 생성
+            logger.info(f"새 컬렉션 생성: {self.collection_name}")
+            self.qdrant.create_collection(
+                collection_name=self.collection_name,
+                vectors_config={"size": 1024, "distance": "Cosine"}
+            )
+            
+            # 데이터 준비 및 임베딩 생성
+            logger.info("데이터 임베딩 생성 중...")
+            batch_size = 100  # Voyage API 제한 고려
+            
+            # 회사 설명 텍스트 생성
+            df['description'] = df.apply(
+                lambda row: f"{row['corp_name']} - {row['industry_name']} - {row['market_type']}", 
+                axis=1
+            )
+            
+            # 배치 처리
+            for i in range(0, len(df), batch_size):
+                batch_df = df.iloc[i:i+batch_size]
+                logger.info(f"배치 처리 중: {i} ~ {i+len(batch_df)-1}")
+                
+                # 임베딩 생성
+                texts = batch_df['description'].tolist()
+                embeddings = self.voyage.embed(
+                    texts=texts,
+                    model="voyage-finance-2",
+                    input_type="document"
+                ).embeddings
+                
+                # 페이로드 생성
+                points = []
+                for j, row in enumerate(batch_df.itertuples()):
+                    # 모든 컬럼을 페이로드에 추가
+                    payload = {col: getattr(row, col) for col in df.columns if col != 'Index'}
+                    
+                    # NaN 값 처리
+                    for k, v in payload.items():
+                        if pd.isna(v):
+                            payload[k] = None
+                        elif isinstance(v, np.integer):
+                            payload[k] = int(v)
+                        elif isinstance(v, np.floating):
+                            payload[k] = float(v)
+                    
+                    points.append({
+                        "id": f"{i+j}",
+                        "vector": embeddings[j],
+                        "payload": payload
+                    })
+                
+                # Qdrant에 포인트 추가
+                self.qdrant.upsert(
+                    collection_name=self.collection_name,
+                    points=points
+                )
+                
+                logger.info(f"배치 {i//batch_size + 1} 처리 완료: {len(points)}개 포인트 추가")
+            
+            logger.info(f"벡터 스토어 초기화 완료: 총 {len(df)}개 데이터 추가됨")
+            return True
+            
+        except Exception as e:
+            logger.error(f"벡터 스토어 초기화 중 오류 발생: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
 
     # ✅ 1. 유사도 기반 검색
     async def search_similar_companies(self, query: str, n_results: int = 8, embedding_model: str = "voyage-finance-2"):

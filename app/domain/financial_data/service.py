@@ -149,6 +149,42 @@ class FinancialDataService:
     def __init__(self):
         self.vector_store = VectorStoreRepository()
 
+    def initialize_vector_store(self, csv_path: Optional[str] = None) -> bool:
+        """
+        CSV 파일 데이터로 벡터 스토어를 초기화합니다.
+        
+        Args:
+            csv_path: CSV 파일 경로 (기본값: data/csv/dart_general_company_financial_fixed_en.csv)
+            
+        Returns:
+            bool: 초기화 성공 여부
+        """
+        import os
+        
+        try:
+            # 기본 CSV 파일 경로 설정
+            if csv_path is None:
+                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                csv_path = os.path.join(base_dir, 'data', 'csv', 'dart_general_company_financial_fixed_en.csv')
+            
+            logger.info(f"벡터 스토어 초기화 시작 - CSV 파일: {csv_path}")
+            
+            # 벡터 스토어 초기화
+            success = self.vector_store.initialize_vector_store(csv_path=csv_path)
+            
+            if success:
+                logger.info("벡터 스토어 초기화 완료")
+            else:
+                logger.error("벡터 스토어 초기화 실패")
+                
+            return success
+            
+        except Exception as e:
+            logger.error(f"벡터 스토어 초기화 중 오류 발생: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+
     async def search_similar_financial_data(self, prompt: str, top_k: int = 8) -> List[Dict[str, Any]]:
         """
         프롬프트와 유사한 기업 검색
@@ -316,4 +352,3 @@ class FinancialDataService:
             conditions_dict=converted,
             n_results=top_k
         )
-

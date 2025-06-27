@@ -25,8 +25,9 @@ column_mapping = {
 }
 
 # CSV 파일 경로
-input_file = os.path.join('data', 'csv', 'dart_general_company_financial_fixed.csv')
-output_file = os.path.join('data', 'csv', 'dart_general_company_financial_fixed_en.csv')
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+input_file = os.path.join(base_dir, 'data', 'csv', 'dart_general_company_financial_fixed.csv')
+output_file = os.path.join(base_dir, 'data', 'csv', 'dart_general_company_financial_fixed_en.csv')
 
 # CSV 파일 읽기
 print(f"Reading CSV file: {input_file}")
