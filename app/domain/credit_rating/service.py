@@ -4,7 +4,7 @@ import os
 import re
 import time
 from typing import Dict, Any, Optional
-
+from app.domain.credit_rating.validation import comprehensive_credit_validation
 from app.infrastructure.llm.runpod_manager import RunPodLLMManager
 from app.infrastructure.search.tavily_search import TavilySearchService
 from app.utils.financial_utils import normalize_unit
@@ -416,6 +416,7 @@ AAA, AA+, AA, AA-, A+, A, A-, BBB+, BBB, BBB-, BB+, BB, BB-, B+, B, B-, CCC+, CC
 		"""
 		재무 데이터를 기반으로 신용등급을 평가합니다.
 		필요한 경우 Tavily 검색을 통해 긍정적/부정적 요소를 보강합니다.
+		ML 모델 예측 후 룰 기반 검증 시스템을 통해 신용등급을 조정합니다.
 
 		Args:
 						financial_data (Dict[str, Any]): 재무 데이터
@@ -496,6 +497,35 @@ AAA, AA+, AA, AA-, A+, A, A-, BBB+, BBB, BBB-, BB+, BB, BB-, B+, B, B-, CCC+, CC
 						pass
 				elif isinstance(financial_data['negative_factors'], list):
 					result["negative_factors"] = financial_data['negative_factors']
+			
+			# 룰 기반 검증 시스템 적용
+			logger.info(f"{company_name} 기업의 ML 예측 신용등급: {result['credit_rating']}")
+			
+			# 원본 ML 예측 결과 저장
+			result["ml_predicted_rating"] = result["credit_rating"]
+			
+			# 룰 기반 검증 및 조정
+			adjusted_rating, adjustment_reason = comprehensive_credit_validation(
+				financial_data, result["credit_rating"])
+			
+			# 조정된 결과 반영
+			result["credit_rating"] = adjusted_rating
+			result["adjustment_reason"] = adjustment_reason
+			
+			# 조정 결과 로깅
+			if result["ml_predicted_rating"] != result["credit_rating"]:
+				logger.info(f"{company_name} 기업의 신용등급 조정: {result['ml_predicted_rating']} -> {result['credit_rating']}")
+				logger.info(f"조정 사유: {adjustment_reason}")
+				
+				# 부정적 요소에 조정 사유 추가
+				if adjustment_reason and "사유:" in adjustment_reason:
+					reasons = adjustment_reason.split("사유:")[1].strip()
+					if reasons:
+						reason_list = [r.strip() for r in reasons.split(",")]
+						if isinstance(result["negative_factors"], list):
+							result["negative_factors"].extend(reason_list)
+						else:
+							result["negative_factors"] = reason_list
 
 			return result
 		except Exception as e:

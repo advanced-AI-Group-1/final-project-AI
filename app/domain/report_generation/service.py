@@ -110,6 +110,27 @@ class ReportGenerationService:
     # 에이전트를 통한 보고서 생성 시작 로깅
     logger.info(f"에이전트 기반 보고서 생성 시작: {company_name}")
 
+    # 관련 뉴스 데이터 가져오기
+    from app.domain.report_generation.news_utils import fetch_latest_news_links
+    try:
+        news_data = fetch_latest_news_links(company_name, max_results=3)
+        logger.info(f"{company_name}에 대한 뉴스 {len(news_data)}개 가져오기 성공")
+        
+        # 뉴스 데이터 로깅
+        if news_data:
+            news_log_content = f"## {company_name} 관련 뉴스 데이터\n\n"
+            for idx, news in enumerate(news_data, 1):
+                news_log_content += f"### 뉴스 {idx}\n"
+                news_log_content += f"- 제목: {news.get('title', 'N/A')}\n"
+                news_log_content += f"- 출처: {news.get('source', 'N/A')}\n"
+                news_log_content += f"- URL: {news.get('url', 'N/A')}\n"
+                news_log_content += f"- 이미지 URL: {news.get('image_url', 'N/A')}\n\n"
+            
+            log_to_file(news_log_content, 'news', 'report_generation', company_name, unit, 'agent_based')
+    except Exception as e:
+        logger.error(f"뉴스 데이터 가져오기 실패: {str(e)}")
+        news_data = []
+
     # 에이전트를 통한 보고서 생성
     report_result = await self.report_agent.generate_report(company_name,
                                                           credit_rating_result,
@@ -146,8 +167,8 @@ class ReportGenerationService:
       "credit_rating": credit_rating_result,
       "generated_at": report_result["generated_at"],
       "report_type": "agent_based",
-      "summary_card_structured": report_result.get("summary_card_structured",
-                                                   {})  # 구조화된 요약 카드 데이터 추가
+      "summary_card_structured": report_result.get("summary_card_structured", {}),  # 구조화된 요약 카드 데이터 추가
+      "news_data": news_data  # 뉴스 데이터 추가
     }
 
   def _construct_report_prompt(self, company_name: str,

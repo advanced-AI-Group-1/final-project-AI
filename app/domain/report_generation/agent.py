@@ -39,7 +39,7 @@ class ReportAgent:
     self.logger = logging.getLogger(__name__)
     self.logger.setLevel(logging.INFO)
     
-    # LLM 모델 정보 로깅2
+    # LLM 모델 정보 로깅
     self.logger.info("ReportAgent 초기화 중...")
     self.logger.info(f"사용 중인 LLM 모델: {self.llm_manager.default_model}")
     self.logger.info(f"LLM 온도(temperature) 설정: {self.llm_manager.temperature}")
@@ -340,7 +340,7 @@ class ReportAgent:
       # 환경 변수에서 API 키 가져오기
       api_key = os.environ.get("TAVILY_API_KEY")
       if not api_key:
-        print("Tavily API 키가 설정되지 않았습니다. 웹 검색을 건너뜁니다.")
+        self.logger.info("Tavily API 키가 설정되지 않았습니다. 웹 검색을 건너뜁니다.")
         return None
       
       # Tavily 클라이언트 초기화
@@ -370,7 +370,7 @@ class ReportAgent:
       
       return None
     except Exception as e:
-      print(f"웹 검색 중 오류 발생: {str(e)}")
+      self.logger.error(f"웹 검색 중 오류 발생: {str(e)}")
       return None
   
   async def _analyze_section(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -390,7 +390,7 @@ class ReportAgent:
       return state
     
     current_section = sections[current_index]
-    print(f"[DEBUG] 현재 섹션 이름: {current_section['name']}")  # 섹션 이름 로그
+
 
     # 웹 검색이 필요한 섹션인지 확인
     web_search_result = None
@@ -481,32 +481,11 @@ class ReportAgent:
     # LLM 호출
     section_content = await self._call_llm(prompt, section_name=current_section['name'], company_name=company_data.get("corp_name", ""))
     
-    # 기업 개요 섹션이면 기사 링크 추가 (로그 포함)
+    # 기업 개요 섹션에서는 뉴스 부분을 제거하고 별도로 저장
     if current_section["name"].replace(" ", "") == "기업개요":
-        print("[DEBUG] 기업개요 섹션 진입!")
-        try:
-            news_links = fetch_latest_news_links(company_data.get('corp_name', ''))
-            print("[DEBUG] 뉴스 링크:", news_links)
-            if news_links:
-                section_content += "<br/><br/>[관련 최신 기사]<br/>"
-                section_content += '<div class="news-list" style="background:#e3f0ff;padding:12px;border-radius:12px;">'
-                for idx, link_info in enumerate(news_links, 1):
-                    img_html = f'<img src="{link_info["image_url"]}" alt="기사 이미지" style="width:60px;height:60px;object-fit:cover;float:right;margin-left:12px;border-radius:8px;" />' if link_info.get("image_url") else ''
-                    source_html = f'<div style="font-size:12px;color:#1976d2;margin-bottom:4px;">{link_info.get("source", "")}</div>' if link_info.get("source") else ''
-                    section_content += (
-                        f'<div class="news-card" style="display:flex;align-items:center;justify-content:space-between;'
-                        f'border-radius:8px;padding:12px;margin-bottom:10px;background:#fff;">'
-                        f'<div style="flex:1;color:#1976d2;">'
-                        f'{source_html}'
-                        f'<a href="{link_info["url"]}" target="_blank" style="color:#1976d2;font-weight:bold;font-size:15px;text-decoration:none;">{link_info["title"]}</a>'
-                        f'</div>'
-                        f'{img_html}'
-                        f'</div>'
-                    )
-                section_content += '</div>'
-        except Exception as e:
-            section_content += f"\n(기사 링크 추가 중 오류: {str(e)})\n"
-            print("[DEBUG] 기사 링크 추가 중 오류:", e)
+
+        # 뉴스 데이터는 이미 service.py에서 별도로 가져와서 API 응답에 포함시키므로 여기서는 추가하지 않음
+        pass
 
     # 섹션 내용 업데이트
     sections[current_index]["content"] = section_content

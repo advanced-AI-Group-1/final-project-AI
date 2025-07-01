@@ -53,6 +53,7 @@ class ReportResponse(BaseModel):
   generated_at: str
   report_type: str
   summary_card_structured: Optional[Dict[str, Any]] = None
+  news_data: Optional[List[Dict[str, Any]]] = None
 
 
 class FinancialDataOnlyRequest(BaseModel):
