@@ -4,6 +4,7 @@ LangGraph를 사용한 보고서 생성 에이전트 구현
 import logging
 import os
 import re
+import traceback
 from datetime import datetime
 from typing import Dict, Any
 import time
@@ -20,7 +21,7 @@ from app.domain.report_generation.prompts import (SUMMARY_CARD_PROMPT,
                                                   CREDIT_RATING_ANALYSIS_PROMPT,
                                                   CONCLUSION_PROMPT)
 from app.infrastructure.llm.manager import LLMManager
-from app.utils.logging_utils import log_to_file
+from app.utils.logging_utils import log_to_file, log_to_memory, save_logs_to_files, log_node_to_memory, save_node_logs_to_file
 
 class ReportAgent:
   """
@@ -57,7 +58,7 @@ class ReportAgent:
     if company_name:
         # 프롬프트 로깅
         prefix = f"section_{section_name}" if section_name else "general"
-        log_to_file(prompt, 'prompt', 'report_agent', company_name, '억원', prefix)
+        log_to_memory(prompt, 'prompt', 'report_agent', company_name, '억원', prefix)
     
     # LLM 호출
     response = await self.llm_manager.generate_response(prompt)
@@ -66,7 +67,7 @@ class ReportAgent:
     if company_name:
         # 응답 로깅
         prefix = f"section_{section_name}" if section_name else "general"
-        log_to_file(response, 'response', 'report_agent', company_name, '억원', prefix)
+        log_to_memory(response, 'response', 'report_agent', company_name, '억원', prefix)
     
     return response
   
@@ -106,9 +107,21 @@ class ReportAgent:
     
     # 주요 재무비율
     result.append("\n[주요 재무비율]")
-    result.append(f"부채비율: {financial_data.get('debt_ratio', 0) * 100:.2f}%")
+    
+    # 부채비율 - 자본잠식 상태(자본총계가 음수)인 경우 특별 처리
+    if financial_data.get('total_equity', 0) <= 0:
+      result.append("부채비율: 자본잠식 상태 (자본총계가 음수이므로 부채비율을 계산할 수 없음)")
+    else:
+      result.append(f"부채비율: {financial_data.get('debt_ratio', 0) * 100:.2f}%")
+    
     result.append(f"ROA(총자산이익률): {financial_data.get('ROA', 0) * 100:.2f}%")
-    result.append(f"ROE(자기자본이익률): {financial_data.get('ROE', 0) * 100:.2f}%")
+    
+    # ROE - 자본잠식 상태인 경우 특별 처리
+    if financial_data.get('total_equity', 0) <= 0:
+      result.append("ROE(자기자본이익률): 자본잠식 상태 (자본총계가 음수이므로 해석에 주의 필요)")
+    else:
+      result.append(f"ROE(자기자본이익률): {financial_data.get('ROE', 0) * 100:.2f}%")
+    
     result.append(f"매출총자산회전율: {financial_data.get('asset_turnover_ratio', 0):.2f}회")
     
     return "\n".join(result)
@@ -197,6 +210,16 @@ class ReportAgent:
     # 상태 업데이트
     state["additional_ratios"] = additional_ratios
     
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = "## 추가 재무비율 계산 결과\n\n"
+        log_content += self._format_additional_ratios(additional_ratios)
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory("calculate_ratios", log_content, "report_agent", company_name)
+    
     return state
   
   async def _generate_summary_card(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -233,10 +256,10 @@ class ReportAgent:
       "strengths": ["강점1", "강점2", "강점3"],
       "weaknesses": ["약점1", "약점2", "약점3"],
       "financial_metrics": {{
-        "roa": {{"value": 0.0, "evaluation": "평가"}},
-        "roe": {{"value": 0.0, "evaluation": "평가"}},
-        "debt_ratio": {{"value": 0.0, "evaluation": "평가"}},
-        "operating_profit_margin": {{"value": 0.0, "evaluation": "평가"}}
+        "roa": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}},
+        "roe": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}},
+        "debt_ratio": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5, "is_capital_impaired": false}},
+        "operating_profit_margin": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}}
       }},
       "credit_rating_trend": {{
         "direction": "상향/유지/하향",
@@ -247,6 +270,19 @@ class ReportAgent:
       "industry_outlook": "Stable/Positive/Negative"
     }}
     ```
+    
+    color_grade는 다음 기준으로 1-5 사이의 정수값을 할당해주세요:
+    1: 매우 나쁨 (심각한 수준으로 업계 평균보다 낮음)
+    2: 나쁨 (업계 평균보다 낮음)
+    3: 보통 (업계 평균 수준)
+    4: 좋음 (업계 평균보다 높음)
+    5: 매우 좋음 (탁월한 수준으로 업계 평균보다 높음)
+    
+    단, 부채비율(debt_ratio)의 경우 낮을수록 좋으므로 반대로 적용해주세요:
+    1: 매우 높은 부채비율 (위험 수준)
+    5: 매우 낮은 부채비율 (안전한 수준)
+    
+    특별히 자본잠식 상태(자본총계가 음수)인 경우, debt_ratio의 is_capital_impaired를 true로 설정하고 evaluation에 "자본잠식 상태로 부채비율이 의미가 없음"이라고 명시해주세요. 이 경우 color_grade는 1로 설정하세요.
     
     JSON 형식만 반환하고, 다른 설명은 포함하지 마세요.
     """.format(summary_card=summary_card)
@@ -274,6 +310,19 @@ class ReportAgent:
     # 상태 업데이트
     state["summary_card"] = summary_card
     state["summary_card_structured"] = structured_data
+    
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = "## 요약 카드 생성 결과\n\n"
+        log_content += summary_card
+        log_content += "\n\n### 구조화된 데이터\n```json\n"
+        log_content += json.dumps(structured_data, ensure_ascii=False, indent=2)
+        log_content += "\n```"
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory("generate_summary", log_content, "report_agent", company_name)
     
     return state
   
@@ -431,6 +480,19 @@ class ReportAgent:
     # 섹션 내용 업데이트
     sections[current_index]["content"] = section_content
     
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = f"## 섹션 분석: {current_section['name']}\n\n"
+        log_content += f"### 섹션 설명\n{current_section['description']}\n\n"
+        log_content += f"### 분석 결과\n{section_content}\n\n"
+        if web_search_result:
+            log_content += f"### 웹 검색 결과\n{web_search_result}\n\n"
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory(f"analyze_section_{current_section['name']}", log_content, "report_agent", company_name)
+    
     # 재생성 모드인 경우
     if regeneration_mode:
       # 현재 섹션이 재생성 목록의 마지막이면 재생성 모드 종료
@@ -500,187 +562,144 @@ class ReportAgent:
       섹션 설명: {section['description']}
       
       섹션 내용:
+      ```
       {section['content']}
+      ```
       
-      다음 기준으로 1-10점 사이의 점수를 매겨주세요:
-      1. 정확성: 재무 데이터와 일치하는 정확한 정보를 제공하는가?
-      2. 완전성: 섹션 설명에 맞는 모든 필요한 내용을 포함하는가?
-      3. 논리성: 주장과 결론이 논리적으로 연결되는가?
-      4. 가독성: 명확하고 이해하기 쉽게 작성되었는가?
+      다음 항목에 대해 1-10점 척도로 평가해주세요:
+      1. 정확성: 내용이 재무 데이터와 일치하는가?
+      2. 완전성: 섹션 설명에 맞게 모든 필요한 내용을 다루었는가?
+      3. 논리성: 분석이 논리적으로 전개되는가?
+      4. 가독성: 내용이 명확하고 이해하기 쉬운가?
       5. 통찰력: 단순한 사실 나열을 넘어 의미 있는 통찰을 제공하는가?
       
-      응답 형식:
-      각 기준별로 점수를 매기고 간략한 평가를 해주세요:
+      종합 점수: (1-10)
       
-      정확성: [1-10점]
-      [평가 내용]
+      개선이 필요한 부분:
+      1. 
+      2. 
+      3. 
       
-      완전성: [1-10점]
-      [평가 내용]
-      
-      논리성: [1-10점]
-      [평가 내용]
-      
-      가독성: [1-10점]
-      [평가 내용]
-      
-      통찰력: [1-10점]
-      [평가 내용]
-      
-      종합점수: [1-10점 사이의 숫자만 입력, 소수점 한 자리까지 허용]
-      
-      종합 평가: [강점과 약점에 대한 간략한 평가]
-      개선점: [개선이 필요한 부분]
-      
-      중요: 종합점수는 반드시 1-10 사이의 숫자만 입력하고, "종합점수:" 다음에 바로 숫자가 오도록 해주세요.
-      예시: "종합점수: 8.5" 형식으로 작성해주세요.
+      종합 평가:
       """
       
-      # LLM 호출하여 검증 결과 얻기
+      # LLM 호출
       review_result = await self._call_llm(prompt, section_name=section['name'], company_name=company_data.get("corp_name", ""))
-      
-      # 전체 응답 로깅 (디버깅용)
       self.logger.info(f"LLM 응답 (섹션 '{section['name']}'): {review_result[:100]}...")
       
-      # 검증 결과 파싱
-      try:
-        # 점수 추출 (다양한 형식 처리)
-        score = None
-        
-        # 방법 1: '종합점수:' 형식 찾기
-        score_lines = [line for line in review_result.split('\n') if '종합점수:' in line or '종합 점수:' in line]
+      # 점수 추출
+      score = None
+      
+      # 방법 1: '종합 점수:' 형식 찾기
+      score_lines = [line for line in review_result.split('\n') if '종합' in line and '점수' in line]
+      if score_lines:
+        score_text = re.split(r'종합\s*점수:', score_lines[0], maxsplit=1)[1].strip()
+        # 숫자만 추출
+        score_match = re.search(r'(\d+(\.\d+)?)', score_text)
+        if score_match:
+          score = float(score_match.group(1))
+          self.logger.info(f"방법 1로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
+          
+          # 점수가 1-10 범위를 벗어나면 무효화
+          if score < 1 or score > 10:
+            self.logger.warning(f"추출된 점수 {score}가 유효 범위(1-10)를 벗어남")
+            score = None
+      
+      # 방법 2: '점수:' 형식 찾기 (이전 프롬프트와의 호환성)
+      if score is None:
+        score_lines = [line for line in review_result.split('\n') if '점수:' in line and not ('종합' in line)]
         if score_lines:
-          score_text = re.split(r'종합\s*점수:', score_lines[0], maxsplit=1)[1].strip()
+          score_text = score_lines[0].split('점수:')[1].strip()
           # 숫자만 추출
           score_match = re.search(r'(\d+(\.\d+)?)', score_text)
           if score_match:
             score = float(score_match.group(1))
-            self.logger.info(f"방법 1로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
+            self.logger.info(f"방법 2로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
             
             # 점수가 1-10 범위를 벗어나면 무효화
             if score < 1 or score > 10:
               self.logger.warning(f"추출된 점수 {score}가 유효 범위(1-10)를 벗어남")
               score = None
+      
+      # 방법 3: 개별 평가 항목 점수 추출 및 평균 계산
+      if score is None:
+        # 정확성, 완전성, 논리성, 가독성, 통찰력 등의 항목별 점수 추출
+        item_scores = []
         
-        # 방법 2: '점수:' 형식 찾기 (이전 프롬프트와의 호환성)
-        if score is None:
-          score_lines = [line for line in review_result.split('\n') if '점수:' in line and not ('종합' in line)]
-          if score_lines:
-            score_text = score_lines[0].split('점수:')[1].strip()
-            # 숫자만 추출
-            score_match = re.search(r'(\d+(\.\d+)?)', score_text)
-            if score_match:
-              score = float(score_match.group(1))
-              self.logger.info(f"방법 2로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
-              
-              # 점수가 1-10 범위를 벗어나면 무효화
-              if score < 1 or score > 10:
-                self.logger.warning(f"추출된 점수 {score}가 유효 범위(1-10)를 벗어남")
-                score = None
+        # 항목별 점수 패턴 (예: "1. 정확성: 8" 또는 "정확성: 8/10")
+        patterns = [
+            r'(\d+)\.\s*정확성:\s*(\d+(\.\d+)?)',  # 1. 정확성: 8
+            r'정확성:\s*(\d+(\.\d+)?)',            # 정확성: 8
+            r'완전성:\s*(\d+(\.\d+)?)',            # 완전성: 8
+            r'논리성:\s*(\d+(\.\d+)?)',            # 논리성: 8
+            r'가독성:\s*(\d+(\.\d+)?)',            # 가독성: 8
+            r'통찰력:\s*(\d+(\.\d+)?)'             # 통찰력: 8
+        ]
         
-        # 방법 3: 개별 평가 항목 점수 추출 및 평균 계산
-        if score is None:
-          # 정확성, 완전성, 논리성, 가독성, 통찰력 등의 항목별 점수 추출
-          item_scores = []
-          
-          # 항목별 점수 패턴 (예: "1. 정확성: 8" 또는 "정확성: 8/10")
-          patterns = [
-              r'(\d+)\.\s*정확성:\s*(\d+(\.\d+)?)',  # 1. 정확성: 8
-              r'정확성:\s*(\d+(\.\d+)?)',            # 정확성: 8
-              r'완전성:\s*(\d+(\.\d+)?)',            # 완전성: 8
-              r'논리성:\s*(\d+(\.\d+)?)',            # 논리성: 8
-              r'가독성:\s*(\d+(\.\d+)?)',            # 가독성: 8
-              r'통찰력:\s*(\d+(\.\d+)?)'             # 통찰력: 8
-          ]
-          
-          for pattern in patterns:
-              matches = re.findall(pattern, review_result)
-              for match in matches:
-                  if isinstance(match, tuple):
-                      # 패턴에 따라 그룹 인덱스가 다를 수 있음
-                      score_str = match[0] if pattern.startswith(r'(\d+)\.') else match[0]
-                      try:
-                          item_score = float(score_str)
-                          if 1 <= item_score <= 10:  # 유효한 점수 범위 확인
-                              item_scores.append(item_score)
-                              self.logger.info(f"항목 점수 추출: {item_score}")
-                      except ValueError:
-                          pass
-          
-          # 항목 점수가 3개 이상 있으면 평균 계산
-          if len(item_scores) >= 3:
-              score = sum(item_scores) / len(item_scores)
-              self.logger.info(f"방법 3으로 항목 점수 평균 계산: {score} (항목 점수: {item_scores})")
+        for pattern in patterns:
+            matches = re.findall(pattern, review_result)
+            for match in matches:
+                if isinstance(match, tuple):
+                    # 패턴에 따라 그룹 인덱스가 다를 수 있음
+                    score_str = match[0] if pattern.startswith(r'(\d+)\.') else match[0]
+                    try:
+                        item_score = float(score_str)
+                        if 1 <= item_score <= 10:  # 유효한 점수 범위 확인
+                            item_scores.append(item_score)
+                    except ValueError:
+                        pass
         
-        # 방법 4: '평가' 또는 '점수' 단어가 포함된 줄에서 1-10 사이의 숫자 찾기
-        if score is None:
-          evaluation_lines = [
-            line for line in review_result.split('\n') if
-            '평가' in line or '점수' in line or '평점' in line or '종합' in line
-          ]
-          
-          for line in evaluation_lines:
-            # 1-10 사이의 숫자만 찾기 (소수점 포함)
-            score_matches = re.findall(r'(?<!\d)([1-9]|10|[1-9]\.\d+)(?!\d)', line)
-            if score_matches:
-              # 첫 번째 매치 사용
-              matched_score = score_matches[0]
-              if isinstance(matched_score, tuple):
-                # 튜플에서 비어있지 않은 첫 번째 그룹 선택
-                score_str = next((s for s in matched_score if s), None)
-              else:
-                score_str = matched_score
-              
-              if score_str:
-                score = float(score_str)
-                self.logger.info(f"방법 4로 점수 추출 성공: {score} (원본 텍스트: '{line}')")
-                break
-        
-        # 방법 5: 1-10 사이의 숫자가 단독으로 있는 줄 찾기
-        if score is None:
-          for line in review_result.split('\n'):
-            line = line.strip()
-            # 1-10 사이의 숫자만 있는 줄 찾기
-            if re.match(r'^([1-9]|10|[1-9]\.\d+)$', line):
-              score = float(line)
-              self.logger.info(f"방법 5로 점수 추출 성공: {score} (원본 텍스트: '{line}')")
-              break
-        
-        # 점수를 찾지 못한 경우 기본값 설정
-        if score is None:
-          # 로그에서 보이는 응답 형식을 분석해 보니 각 항목별 점수가 높은 편이므로
-          # 기본값을 6.0에서 7.5로 상향 조정
-          self.logger.warning(f"섹션 '{section['name']}'의 점수를 찾을 수 없어 기본값 7.5를 사용합니다.")
-          self.logger.warning(f"LLM 응답 처음 500자: {review_result[:500]}...")
-          score = 7.5  # 기본값 상향 조정
-        
-        # 결과 저장
-        review_data = {"section_index": i, "section_name": section['name'], "score": score,
-                       "review": review_result}
-        review_results.append(review_data)
-        
-        # 점수가 임계값 미만이면 재생성 목록에 추가
-        if score < self.quality_threshold:
-          self.logger.info(
-            f"섹션 '{section['name']}'의 점수({score})가 임계값({self.quality_threshold}) 미만으로 재생성 목록에 추가합니다.")
-          sections_to_regenerate.append(i)
-      except Exception as e:
-        self.logger.error(f"검증 결과 파싱 중 오류 발생: {str(e)}")
-        # 오류 발생 시 안전하게 재생성 목록에 추가
+        # 항목 점수가 3개 이상 있으면 평균 계산
+        if len(item_scores) >= 3:
+            score = sum(item_scores) / len(item_scores)
+            self.logger.info(f"방법 3으로 점수 추출 성공: {score} (항목별 점수: {item_scores})")
+      
+      # 여전히 점수를 추출하지 못한 경우 기본값 설정
+      if score is None:
+        self.logger.warning(f"섹션 '{section['name']}'의 점수를 추출하지 못했습니다. 기본값 5.0 사용")
+        score = 5.0  # 중간 점수로 기본 설정
+      
+      # 결과 저장
+      review_info = {
+        "section_index": i,
+        "section_name": section["name"],
+        "review": review_result,
+        "score": score
+      }
+      review_results.append(review_info)
+      
+      # 점수가 낮은 섹션은 재생성 목록에 추가
+      if score < 7.0:  # 7점 미만은 재생성 대상
         sections_to_regenerate.append(i)
+        self.logger.info(f"섹션 '{section['name']}'의 점수가 {score}로 낮아 재생성 목록에 추가")
     
-    # 검증 결과 저장
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = "## 보고서 검증 결과\n\n"
+        for review in review_results:
+            log_content += f"### {review['section_name']} (점수: {review['score']})\n\n"
+            log_content += f"{review['review']}\n\n"
+            if review['section_index'] in sections_to_regenerate:
+                log_content += f"**재생성 필요** - 점수가 7.0 미만입니다.\n\n"
+            log_content += "---\n\n"
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory("review_report", log_content, "report_agent", company_name)
+    
+    # 상태 업데이트
     state["review_results"] = review_results
     
-    # 재생성이 필요한 섹션이 있으면 해당 인덱스 설정
+    # 재생성이 필요한 섹션이 있는 경우
     if sections_to_regenerate:
+      self.logger.info(f"재생성이 필요한 섹션: {[sections[i]['name'] for i in sections_to_regenerate]}")
       state["sections_to_regenerate"] = sections_to_regenerate
-      state["current_section_index"] = sections_to_regenerate[0]
       state["regeneration_mode"] = True
-      # 다음 노드 설정
+      state["current_section_index"] = sections_to_regenerate[0]
       state["next"] = "analyze_section"
     else:
-      # 모든 섹션이 품질 기준을 통과했으면 보고서 컴파일로 진행
+      self.logger.info("모든 섹션이 품질 기준을 통과했습니다.")
       state["next"] = "compile_report"
     
     return state
@@ -690,6 +709,7 @@ class ReportAgent:
     self.logger.info("현재 노드: compile_report")
     sections = state["sections"]
     summary_card = state["summary_card"]
+    company_data = state["company_data"]
     
     # 상세 보고서 컴파일
     detailed_content = []
@@ -698,6 +718,22 @@ class ReportAgent:
       detailed_content.append(f"## {section['name']}\n\n{section['content']}")
     
     detailed_report = "\n\n".join(detailed_content)
+    
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = "## 최종 보고서 컴파일 결과\n\n"
+        log_content += "### 요약 카드\n\n"
+        log_content += summary_card
+        log_content += "\n\n### 상세 보고서\n\n"
+        log_content += detailed_report
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory("compile_report", log_content, "report_agent", company_name)
+        
+        # 최종 보고서 내용을 별도로 노드 로그에 추가
+        log_node_to_memory("final_report", detailed_report, "report_agent", company_name)
     
     # 상태 업데이트
     state["detailed_report"] = detailed_report
@@ -776,6 +812,20 @@ class ReportAgent:
     state["sections"] = sections
     state["current_section_index"] = 0
     state["all_analysis_done"] = False
+    
+    # 노드 결과 로깅
+    company_name = company_data.get("corp_name", "")
+    if company_name:
+        # 로그 내용 구성
+        log_content = "## 보고서 섹션 계획\n\n"
+        for i, section in enumerate(sections):
+            log_content += f"{i+1}. **{section['name']}** ({section['description']})\n"
+            log_content += f"   - 글자 수 제한: {section['char_limit']}자\n"
+            log_content += f"   - 계산 필요: {'예' if section['requires_calculation'] else '아니오'}\n"
+            log_content += f"   - 연구 필요: {'예' if section['requires_research'] else '아니오'}\n\n"
+        
+        # 노드 결과를 메모리에 저장
+        log_node_to_memory("plan_sections", log_content, "report_agent", company_name)
     
     return state
   
@@ -874,14 +924,19 @@ class ReportAgent:
         "generated_at": datetime.now().isoformat()
       }
       
-      # 최종 보고서 로깅
-      log_to_file(final_state["detailed_report"], 'final_report', 'report_agent', company_name, unit)
+      # 모든 노드 로그를 하나의 파일로 저장
+      from app.utils.logging_utils import save_node_logs_to_file
+      save_node_logs_to_file('report_agent', company_name, unit)
+      
+      # 메모리에 저장된 다른 로그는 저장하지 않음
+      # save_logs_to_files('report_agent', company_name)
       
       # 로깅 완료
       end_time = time.time()
-      self.logger.info(f"'{company_name}' 기업 보고서 생성 완료 (소요시간: {end_time - start_time:.2f}초)")
+      self.logger.info(f"'{company_name}' 기업 보고서 생성 완료 (소요 시간: {end_time - start_time:.2f}초)")
       
       return result
     except Exception as e:
-      self.logger.error(f"'{company_name}' 기업 보고서 생성 중 오류 발생: {str(e)}")
-      raise e
+      self.logger.error(f"보고서 생성 중 오류 발생: {str(e)}")
+      traceback.print_exc()
+      raise

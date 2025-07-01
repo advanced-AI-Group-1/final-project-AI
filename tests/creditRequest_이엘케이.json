@@ -1,0 +1,33 @@
+{
+    "company_name": "이엘케이",
+    "similarity_score": 0.42759666,
+    "financial_data": {
+        "corp_code": 94190.0,
+        "corp_name": "이엘케이",
+        "market_type": "기타법인",
+        "industry_name": "전자 부품 제조업",
+        "is_consolidated": false,
+        "revenue": 5679557852.0,
+        "operating_profit": -585149183.0,
+        "net_income": -470113207.0,
+        "total_assets": 2381934427.0,
+        "total_liabilities": 22351426434.0,
+        "total_equity": -19969492007.0,
+        "capital": 895360000.0,
+        "operating_cash_flow": -4834662167.0,
+        "interest_bearing_debt": 7330096925.0,
+        "debt_ratio": -1.1192786689899297,
+        "ROA": -0.1973661414315667,
+        "ROE": 0.0235415706536355,
+        "asset_turnover_ratio": 2.384430817078912,
+        "interest_to_assets_ratio": 3.0773714179160314,
+        "interest_to_revenue_ratio": 1.2906104869446446,
+        "cash_flow_to_interest": -0.6595631975685556,
+        "interest_to_cash_flow": -1.5161549397493104,
+        "log_total_assets": 9.37692980148595,
+        "log_total_liabilities": 10.349305244364915,
+        "positive_factors": "[\"2023년 영업이익률이 46.2%로 높아 영업 효율성이 우수함\", \"당기순이익이 1억 원으로 긍정적인 수익성을 보여줌\"]",
+        "negative_factors": "[\"매출액이 2억 190만 원으로 감소세를 보임\", \"영업손실이 1,021만 원으로 나타나 영업적자 발생\"]",
+        "description": "이엘케이 - 전자 부품 제조업 - 기타법인"
+    }
+}

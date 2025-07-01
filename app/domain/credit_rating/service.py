@@ -38,10 +38,19 @@ class CreditRatingService:
 
 		# 부채비율 계산 (총부채 / 자본총계 * 100)
 		if ('total_liabilities' in data and 'total_equity' in data and
-				data['total_equity'] is not None and data['total_equity'] != 0 and
+				data['total_equity'] is not None and
 				data['total_liabilities'] is not None):
 			if 'debt_ratio' not in data or data['debt_ratio'] == 0:
-				data['debt_ratio'] = data['total_liabilities'] / data['total_equity']
+				# 자본이 0이거나 음수인 경우 특별 처리
+				if data['total_equity'] <= 0:
+					# 자본잠식 상태이므로 매우 높은 부채비율로 설정 (999.99)
+					data['debt_ratio'] = 999.99
+					# 자본잠식 상태 표시를 위한 플래그 추가
+					data['is_capital_impaired'] = True
+				else:
+					# 정상적인 부채비율 계산
+					data['debt_ratio'] = data['total_liabilities'] / data['total_equity']
+					data['is_capital_impaired'] = False
 
 		# ROA 계산 (당기순이익 / 총자산)
 		if ('net_income' in data and 'total_assets' in data and
@@ -153,7 +162,7 @@ AAA, AA+, AA, AA-, A+, A, A-, BBB+, BBB, BBB-, BB+, BB, BB-, B+, B, B-, CCC+, CC
 다른 형식(예: AAA+99+, AAA++, A++, BBB++, CCC--)은 사용하지 마세요."""
 
 		# 입력 텍스트 생성
-		input_text = f"재무 정보 (단위: {unit}):\n"
+		input_text = f"재무 정보:\n"
 		input_text += f"- 매출액: {financial_data.get('revenue', 0):,.0f}\n"
 		input_text += f"- 영업이익: {financial_data.get('operating_profit', 0):,.0f}\n"
 		input_text += f"- 순이익: {financial_data.get('net_income', 0):,.0f}\n"
@@ -319,11 +328,24 @@ AAA, AA+, AA, AA-, A+, A, A-, BBB+, BBB, BBB-, BB+, BB, BB-, B+, B, B-, CCC+, CC
 					if base_rating:
 						base = base_rating.group(1)
 						# 기본 등급이 유효한지 확인
-						if base in ["AAA", "AA", "A", "BBB", "BB", "B", "CCC", "CC", "C",
-						            "D"]:
-							result["credit_rating"] = base
+						if base in ["AAA", "AA", "A", "BBB", "BB", "B", "CCC", "CC", "C", "D"]:
+							# AAA는 특별 처리 - 항상 AAA로만 반환
+							if base == "AAA":
+								result["credit_rating"] = "AAA"
+							else:
+								# 다른 등급은 + 또는 - 기호 처리
+								has_plus = "+" in extracted_rating_upper
+								has_minus = "-" in extracted_rating_upper
+								
+								if has_plus:
+									result["credit_rating"] = f"{base}+"
+								elif has_minus:
+									result["credit_rating"] = f"{base}-"
+								else:
+									result["credit_rating"] = base
+							
 							logger.warning(
-								f"비정상적인 신용등급 형식 '{extracted_rating}' 감지: 기본 등급 '{base}'로 변환")
+								f"비정상적인 신용등급 형식 '{extracted_rating}' 감지: '{result['credit_rating']}'로 변환")
 						else:
 							logger.warning(
 								f"인식할 수 없는 신용등급 형식: {extracted_rating}. 기본값 'N/A' 사용.")
