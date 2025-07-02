@@ -46,8 +46,8 @@ class CreditRatingRequestSubmitResponse(BaseModel):
 
 class CreditRatingRequest(BaseModel):
   """
-    신용등급 평가 요청 모델
-    """
+  신용등급 평가 요청 모델
+  """
   company_name: str
   financial_data: Dict[str, Any]
   unit: Optional[str] = "억원"  # "억원" 또는 "원", 기본값은 "억원"

@@ -5,7 +5,6 @@ import re
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
-
 def format_report_data(company_name: str, summary_card: str, detailed_report: str,
     generated_at: str) -> Dict[str, Any]:
   """
