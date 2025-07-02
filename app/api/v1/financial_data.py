@@ -26,7 +26,11 @@ class FilterRequest(BaseModel):
 class FinancialDataResponse(BaseModel):
   company_name: str
   similarity_score: float
-  financial_statements: Dict[str, Any]
+  financial_data: Dict[str, Any]
+
+
+class InitVectorStoreRequest(BaseModel):
+  csv_path: Optional[str] = None
 
 
 class InitVectorStoreResponse(BaseModel):
@@ -35,15 +39,22 @@ class InitVectorStoreResponse(BaseModel):
 
 
 @router.post("/initialize-vector-store", response_model=InitVectorStoreResponse)
-async def initialize_vector_store():
+async def initialize_vector_store(request: InitVectorStoreRequest = None):
   """
     벡터 스토어를 초기화하고 CSV 데이터를 로드합니다.
+    기본적으로 data/csv/dart_general_company_financial_fixed_en.csv 파일을 사용합니다.
     """
   try:
     logger.info("벡터 스토어 초기화 API 호출")
     service = FinancialDataService()
-    # 동기 함수로 직접 호출
-    success = service.initialize_vector_store()
+    
+    csv_path = None
+    if request and request.csv_path:
+      csv_path = request.csv_path
+      logger.info(f"사용자 지정 CSV 경로: {csv_path}")
+    
+    # 벡터 스토어 초기화
+    success = service.initialize_vector_store(csv_path=csv_path)
 
     if success:
       return {"status": "success", "message": "벡터 스토어 초기화가 완료되었습니다."}

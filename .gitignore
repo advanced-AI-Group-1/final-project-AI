@@ -194,7 +194,11 @@ cython_debug/
 .cursorindexingignore
 /.idea
 !/.env
-!/tests/
-/tests
+#!/tests/
+#/tests
 .env
 .env.development
+!/.history/
+#!/app/logs/
+#/logs
+/logs

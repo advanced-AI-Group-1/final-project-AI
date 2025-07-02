@@ -1,0 +1,33 @@
+{
+    "company_name": "삼화콘덴서공업",
+    "similarity_score": 0.3931285,
+    "financial_data": {
+        "corp_code": 1820.0,
+        "corp_name": "삼화콘덴서공업",
+        "market_type": "유가증권시장상장법인",
+        "industry_name": "전자 부품 제조업",
+        "is_consolidated": false,
+        "revenue": 237608273203.0,
+        "operating_profit": 10158795924.0,
+        "net_income": 17463183577.0,
+        "total_assets": 328114248167.0,
+        "total_liabilities": 60837129024.0,
+        "total_equity": 267277119143.0,
+        "capital": 10395000000.0,
+        "operating_cash_flow": 39262657051.0,
+        "interest_bearing_debt": 0.0,
+        "debt_ratio": 0.2276181710543303,
+        "ROA": 0.0532228748814095,
+        "ROE": 0.0653373683201694,
+        "asset_turnover_ratio": 0.7241632282974336,
+        "interest_to_assets_ratio": 0.0,
+        "interest_to_revenue_ratio": 0.0,
+        "cash_flow_to_interest": null,
+        "interest_to_cash_flow": null,
+        "log_total_assets": 11.516025089776326,
+        "log_total_liabilities": 10.784168710994798,
+        "positive_factors": null,
+        "negative_factors": "[\"부품 제조업 유가에 대한 정보 부족으로 인해 재무 상태 및 성과에 대한 평가가 어려움\", \"영업 이익 및 부채 관련 정보가 결여되어 있어 기업의 재무 건전성을 판단하기 어려움\"]",
+        "description": "삼화콘덴서공업 - 전자 부품 제조업 - 유가증권시장상장법인"
+    }
+}
