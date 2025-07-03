@@ -13,7 +13,7 @@ import time
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
-from tavily import TavilyClient
+from app.infrastructure.mcp.client import get_mcp_client
 
 from app.domain.report_generation.models import ReportState, \
   AdditionalRatioCalculator, Section
@@ -33,6 +33,8 @@ class ReportAgent:
   
   def __init__(self):
     self.llm_manager = LLMManager()
+    # MCP 클라이언트 초기화
+    self.mcp_client = get_mcp_client()
     # 섹션 품질 점수 임계값 설정 (이 점수 미만이면 재생성)
     self.quality_threshold = 7.0
     # 로거 설정
@@ -334,25 +336,17 @@ class ReportAgent:
     return f"{section.name} ({section.description}) - 계산 필요: {section.requires_calculation}, 연구 필요: {section.requires_research}"
   
   async def _perform_web_search(self, query: str) -> str:
-    """Tavily API를 사용하여 웹 검색을 수행합니다."""
+    """MCP 서비스를 통해 Tavily API를 사용하여 웹 검색을 수행합니다."""
     try:
-      load_dotenv()
-      # 환경 변수에서 API 키 가져오기
-      api_key = os.environ.get("TAVILY_API_KEY")
-      if not api_key:
-        self.logger.info("Tavily API 키가 설정되지 않았습니다. 웹 검색을 건너뜁니다.")
-        return None
-      
-      # Tavily 클라이언트 초기화
-      client = TavilyClient(api_key=api_key)
-      
-      # 검색 수행
-      search_result = client.search(query=query,
+      # MCP 클라이언트를 사용하여 검색 수행
+      search_result = await self.mcp_client.search_tavily(
+        query=query,
         search_depth="advanced",
         max_results=3,
         include_answer=True,
         include_raw_content=False,
-        include_images=False)
+        include_images=False
+      )
       
       # 결과 추출
       if search_result and "answer" in search_result:
