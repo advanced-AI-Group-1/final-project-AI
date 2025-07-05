@@ -125,6 +125,17 @@ class ReportAgent:
     
     result.append(f"매출총자산회전율: {financial_data.get('asset_turnover_ratio', 0):.2f}회")
     
+    # 단위 변환 가이드 및 강력한 지침 추가
+    result.append("\n■ 단위 표기 규칙 (반드시 준수):")
+    result.append("- 위 데이터는 모두 '억원' 단위로 제공됩니다")
+    result.append("- 보고서 작성 시 가독성을 위해 다음 규칙을 따르세요:")
+    result.append("  1. 10,000억원 이상: 조원 단위 사용 (예: 877,281.8억원 → 87.7조원)")
+    result.append("  2. 1,000억원 이상: 조원 단위 사용 (예: 34,196.8억원 → 3.4조원)")
+    result.append("  3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)")
+    result.append("  4. 단위 변환 공식: 1조원 = 10,000억원")
+    result.append("- 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)")
+    result.append("- 예시: 매출액 877,281.8억원은 반드시 '87.7조원'으로 표기")
+    
     return "\n".join(result)
   
   def _format_credit_rating(self, credit_rating: Dict[str, Any]) -> str:
@@ -426,6 +437,13 @@ class ReportAgent:
       
       섹션 정보:
       섹션 설명: {section_description}
+      
+      **단위 표기 규칙 (반드시 준수):**
+      1. 10,000억원 이상: 조원 단위 사용 (예: 87.7조원)
+      2. 1,000억원 이상: 조원 단위 사용 (예: 3.4조원)
+      3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)
+      4. 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)
+      5. 예시 참고: 매출액 877,281.8억원 → "87.7조원"으로 표기
       
       중요: 응답에 '현금흐름표'나 '현금흐름표 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
       
