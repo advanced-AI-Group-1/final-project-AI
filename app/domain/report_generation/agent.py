@@ -269,10 +269,10 @@ class ReportAgent:
       "strengths": ["강점1", "강점2", "강점3"],
       "weaknesses": ["약점1", "약점2", "약점3"],
       "financial_metrics": {{
-        "roa": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}},
-        "roe": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}},
-        "debt_ratio": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5, "is_capital_impaired": false}},
-        "operating_profit_margin": {{"value": 0.0, "evaluation": "평가", "color_grade": 1-5}}
+        "roa": {{"value": 0.0, "display_value": "0.00%", "evaluation": "평가", "color_grade": 1-5}},
+        "roe": {{"value": 0.0, "display_value": "0.00%", "evaluation": "평가", "color_grade": 1-5}},
+        "debt_ratio": {{"value": 0.0, "display_value": "0.00%", "evaluation": "평가", "color_grade": 1-5, "is_capital_impaired": false}},
+        "operating_profit_margin": {{"value": 0.0, "display_value": "0.00%", "evaluation": "평가", "color_grade": 1-5}}
       }},
       "credit_rating_trend": {{
         "direction": "상향/유지/하향",
@@ -283,6 +283,12 @@ class ReportAgent:
       "industry_outlook": "Stable/Positive/Negative"
     }}
     ```
+    
+    중요: 모든 재무지표는 반드시 다음 규칙을 따라주세요:
+    1. value 필드에는 소수점 형태의 원본 값을 저장 (예: 0.067)
+    2. display_value 필드에는 퍼센트로 변환한 값을 문자열로 저장 (예: "6.70%")
+    3. 모든 재무지표는 퍼센트(%) 형식으로 표시해야 함
+    4. 매출총자산회전율(asset_turnover_ratio)도 퍼센트로 변환하여 표시 (예: 0.5회 → "50.00%")
     
     color_grade는 다음 기준으로 1-5 사이의 정수값을 할당해주세요:
     1: 매우 나쁨 (심각한 수준으로 업계 평균보다 낮음)
@@ -421,40 +427,43 @@ class ReportAgent:
         market_type=company_data.get("market_type", ""),
         financial_data=self._format_financial_data(company_data),
         credit_rating=self._format_credit_rating(credit_rating))
-    elif current_section["name"] == "현금흐름표":
+    elif current_section["name"] == "유동성 분석":
       prompt = """
-      기업명: {company_name}
-      업종: {industry_name}
-      시장구분: {market_type}
-      
-      다음 재무 데이터와 신용등급 정보를 바탕으로 현금흐름 분석 내용을 작성해주세요:
-      
-      재무 데이터:
-      {financial_data}
-      
-      신용등급 정보:
-      {credit_rating}
-      
-      섹션 정보:
-      섹션 설명: {section_description}
-      
-      **단위 표기 규칙 (반드시 준수):**
-      1. 10,000억원 이상: 조원 단위 사용 (예: 87.7조원)
-      2. 1,000억원 이상: 조원 단위 사용 (예: 3.4조원)
-      3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)
-      4. 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)
-      5. 예시 참고: 매출액 877,281.8억원 → "87.7조원"으로 표기
-      
-      중요: 응답에 '현금흐름표'나 '현금흐름표 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
-      
-      글자 수 제한: {char_limit}자 이내
-      """.format(company_name=company_data.get('corp_name', ''),
+            기업명: {company_name}
+            업종: {industry_name}
+            시장구분: {market_type}
+
+            다음 재무 데이터와 신용등급 정보를 바탕으로 유동성 분석 내용을 작성해주세요:
+
+            재무 데이터:
+            {financial_data}
+
+            신용등급 정보:
+            {credit_rating}
+
+            다음 관점에서 분석해주세요:
+            1. 현금흐름 분석 (영업활동현금흐름, 투자활동현금흐름, 재무활동현금흐름)
+            2. 운전자본 및 유동성 상태
+            3. 단기 지급능력 평가
+            4. 현금 관리 효율성
+
+            **단위 표기 규칙 (반드시 준수):**
+            1. 10,000억원 이상: 조원 단위 사용 (예: 87.7조원)
+            2. 1,000억원 이상: 조원 단위 사용 (예: 3.4조원)
+            3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)
+            4. 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)
+
+            중요: 응답에 '유동성 분석'이나 '유동성 분석 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
+
+            글자 수 제한: {char_limit}자 이내
+            """.format(
+        company_name=company_data.get('corp_name', ''),
         industry_name=company_data.get('industry_name', ''),
         market_type=company_data.get('market_type', ''),
         financial_data=self._format_financial_data(company_data),
         credit_rating=self._format_credit_rating(credit_rating),
-        section_description=current_section['description'],
-        char_limit=current_section['char_limit'])
+        char_limit=current_section['char_limit']
+      )
     elif current_section["name"] == "결론 및 제언":
       prompt = CONCLUSION_PROMPT.format(company_name=company_data.get("corp_name", ""),
         industry_name=company_data.get("industry_name", ""),
@@ -611,9 +620,9 @@ class ReportAgent:
       종합 점수: (1-10)
       
       개선이 필요한 부분:
-      1. 
-      2. 
-      3. 
+      1.
+      2.
+      3.
       
       중요: 종합점수는 반드시 1-10 사이의 숫자만 입력하고, "종합점수:" 다음에 바로 숫자가 오도록 해주세요.
       """
@@ -830,8 +839,8 @@ class ReportAgent:
       "char_limit": 500,
       "content": ""
     }, {
-      "name": "현금흐름표",
-      "description": "영업활동현금흐름, 투자활동현금흐름, 재무활동현금흐름 등",
+      "name": "유동성 분석",
+      "description": "현금흐름, 운전자본, 유동성 위험 등 분석",  # 수정된 설명
       "requires_calculation": True,
       "requires_research": False,
       "char_limit": 400,
