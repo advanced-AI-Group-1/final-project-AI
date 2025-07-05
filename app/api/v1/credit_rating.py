@@ -50,7 +50,7 @@ class CreditRatingRequest(BaseModel):
   """
   company_name: str
   financial_data: Dict[str, Any]
-  unit: Optional[str] = "억원"  # "억원" 또는 "원", 기본값은 "억원"
+  unit: Optional[str] = "원"  # 기본값은 "원"
   positive_factors: Optional[List[str]] = None
   negative_factors: Optional[List[str]] = None
   additional_context: Optional[str] = None

@@ -53,7 +53,7 @@ class ReportGenerationService:
                                            normalized_financial_data, report_type)
 
     # 프롬프트 로깅
-    unit = normalized_financial_data.get('unit', '억원')
+    unit = normalized_financial_data.get('unit', '원')
     log_to_file(prompt, 'prompt', 'report_generation', company_name, unit)
 
     # LLM을 통한 보고서 생성
@@ -105,7 +105,7 @@ class ReportGenerationService:
         Dict[str, Any]: 생성된 보고서
     """
     # 단위 정보 로깅을 위해 추출
-    unit = financial_data.get('unit', '억원')
+    unit = financial_data.get('unit', '원')
 
     # 에이전트를 통한 보고서 생성 시작 로깅
     logger.info(f"에이전트 기반 보고서 생성 시작: {company_name}")
@@ -139,6 +139,9 @@ class ReportGenerationService:
     # 에이전트 기반 보고서 생성 결과 로깅
     if "detailed_report" in report_result:
         log_to_file(report_result["detailed_report"], 'report', 'report_generation', company_name, unit, 'agent_based')
+    
+    # 신용등급 평가 섹션 추출 및 별도 로깅
+    self._extract_and_log_credit_rating_section(report_result, company_name, unit)
 
     logger.info(f"에이전트 기반 보고서 생성 완료: {company_name}")
 
@@ -170,6 +173,41 @@ class ReportGenerationService:
       "summary_card_structured": report_result.get("summary_card_structured", {}),  # 구조화된 요약 카드 데이터 추가
       "news_data": news_data  # 뉴스 데이터 추가
     }
+
+  def _extract_and_log_credit_rating_section(self, report_result: Dict[str, Any], company_name: str, unit: str) -> None:
+    """
+    보고서에서 신용등급 평가 섹션을 추출하여 별도의 로그 파일로 저장합니다.
+    
+    Args:
+        report_result (Dict[str, Any]): 보고서 생성 결과
+        company_name (str): 기업명
+        unit (str): 재무 데이터 단위
+    """
+    try:
+      sections = report_result.get("sections", [])
+      credit_rating_section = None
+      
+      # 신용등급 평가 섹션 찾기
+      for section in sections:
+        if section.get("name") == "신용등급 평가":
+          credit_rating_section = section.get("content", "")
+          break
+      
+      if credit_rating_section:
+        # 신용등급 평가 섹션을 별도 파일로 로깅
+        log_to_file(
+          credit_rating_section, 
+          'credit_rating_section', 
+          'report_evaluation', 
+          company_name, 
+          unit
+        )
+        logger.info(f"{company_name} 기업의 신용등급 평가 섹션을 별도 파일로 저장했습니다.")
+      else:
+        logger.warning(f"{company_name} 기업의 보고서에서 신용등급 평가 섹션을 찾을 수 없습니다.")
+    
+    except Exception as e:
+      logger.error(f"신용등급 평가 섹션 추출 중 오류 발생: {str(e)}")
 
   def _construct_report_prompt(self, company_name: str,
       credit_rating_result: Dict[str, Any], financial_data: Dict[str,

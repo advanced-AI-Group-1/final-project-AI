@@ -631,10 +631,10 @@ async def create_summary_card(state: CreditAnalysisState) -> dict:
 
     # 재무 데이터 요약
     financial_summary = f"""
-    매출액: {company_data.revenue:,.0f}백만원
-    영업이익: {company_data.operating_income:,.0f}백만원 (영업이익률: {(company_data.operating_income/company_data.revenue)*100:.1f}%)
-    당기순이익: {company_data.net_income:,.0f}백만원
-    총자산: {company_data.total_assets:,.0f}백만원
+    매출액: {company_data.revenue:,.0f}원
+    영업이익: {company_data.operating_income:,.0f}원
+    당기순이익: {company_data.net_income:,.0f}원
+    총자산: {company_data.total_assets:,.0f}원
     ROE: {company_data.roe:.2f}%
     ROA: {company_data.roa:.2f}%
     부채비율: {company_data.debt_ratio:.2f}%
@@ -689,12 +689,12 @@ async def process_detailed_sections(state: CreditAnalysisState) -> dict:
             # 재무 데이터 요약
             financial_summary = f"""
             {company_data.year}년 재무 현황:
-            - 매출액: {company_data.revenue:,.0f}백만원
-            - 영업이익: {company_data.operating_income:,.0f}백만원
-            - 당기순이익: {company_data.net_income:,.0f}백만원
-            - 총자산: {company_data.total_assets:,.0f}백만원
-            - 총부채: {company_data.total_liabilities:,.0f}백만원
-            - 자기자본: {company_data.total_equity:,.0f}백만원
+            - 매출액: {company_data.revenue:,.0f}원
+            - 영업이익: {company_data.operating_income:,.0f}원
+            - 당기순이익: {company_data.net_income:,.0f}원
+            - 총자산: {company_data.total_assets:,.0f}원
+            - 총부채: {company_data.total_liabilities:,.0f}원
+            - 자기자본: {company_data.total_equity:,.0f}원
             - ROE: {company_data.roe:.2f}%
             - ROA: {company_data.roa:.2f}%
             - 부채비율: {company_data.debt_ratio:.2f}%
@@ -711,7 +711,7 @@ async def process_detailed_sections(state: CreditAnalysisState) -> dict:
             if section.name == "재무상태 분석":
                 # 재무제표 요약 테이블 생성
                 financial_table = f"""
-                | 구분 | 금액(백만원) | 비율(%) |
+                | 구분 | 금액(원) | 비율(%) |
                 |------|-------------|---------|
                 | **손익계산서** |  |  |
                 | 매출액 | {company_data.revenue:,.0f} | 100.0 |
@@ -820,7 +820,7 @@ async def compile_final_reports(state: CreditAnalysisState) -> dict:
 
     <h3>주요 재무지표 ({company_data.year}년)</h3>
     <table>
-        <tr><th>구분</th><th>금액(백만원)</th><th>비율(%)</th></tr>
+        <tr><th>구분</th><th>금액(원)</th><th>비율(%)</th></tr>
         <tr><td>매출액</td><td>{company_data.revenue:,.0f}</td><td>100.0</td></tr>
         <tr><td>영업이익</td><td>{company_data.operating_income:,.0f}</td><td>{(company_data.operating_income/company_data.revenue)*100:.1f}</td></tr>
         <tr><td>당기순이익</td><td>{company_data.net_income:,.0f}</td><td>{(company_data.net_income/company_data.revenue)*100:.1f}</td></tr>
@@ -1025,15 +1025,15 @@ def create_sample_single_year_data() -> RealFinancialData:
         market_type="KOSPI",
         industry_name="반도체",
         year=2023,
-        revenue=258870000,  # 258.87조원 (백만원 단위)
-        operating_income=15422000,  # 15.42조원
-        net_income=15625000,  # 15.63조원
-        total_assets=426951000,  # 426.95조원
-        total_liabilities=89490000,  # 89.49조원
-        total_equity=337461000,  # 337.46조원
-        capital_stock=778000,  # 7,780억원
-        interest_bearing_debt=13527000,  # 13.53조원
-        operating_cash_flow=45129000,  # 45.13조원
+        revenue=258870000000,  # 258.87조원 (원 단위)
+        operating_income=154220000000,  # 15.42조원
+        net_income=156250000000,  # 15.63조원
+        total_assets=426951000000000,  # 426.95조원
+        total_liabilities=89490000000000,  # 89.49조원
+        total_equity=337461000000000,  # 337.46조원
+        capital_stock=7780000000000,  # 7,780,000,000원
+        interest_bearing_debt=13527000000000,  # 13.53조원
+        operating_cash_flow=45129000000000,  # 45.13조원
         debt_ratio=20.98,  # 20.98%
         roa=3.66,  # 3.66%
         roe=4.63,  # 4.63%
@@ -1042,8 +1042,8 @@ def create_sample_single_year_data() -> RealFinancialData:
         interest_to_revenue=0.52,  # 0.52%
         cash_to_interest=33.5,  # 33.5배
         interest_to_cash=0.03,  # 0.03
-        log_total_assets=8.63,  # log(426951000)
-        log_total_liabilities=7.95   # log(89490000)
+        log_total_assets=8.63,  # log(426951000000000)
+        log_total_liabilities=7.95   # log(89490000000000)
     )
 
 def create_sample_credit_ratings() -> List[CreditRating]:
@@ -1069,9 +1069,9 @@ def create_sample_credit_ratings() -> List[CreditRating]:
 def create_single_year_template() -> str:
     """단일연도 재무 데이터 CSV 템플릿 생성"""
     template = """corp_name,market_type,industry_name,year,매출액,영업이익,당기순이익,총자산,총부채,자본총계,자본금,영업활동현금흐름,이자발생부채,부채비율,ROA,ROE,매출총자산회전율,이자총자산비율,이자매출비율,현금흐름대비이자,이자대비현금흐름,로그총자산,로그총부채
-삼성전자,KOSPI,반도체,2023,258870000,15422000,15625000,426951000,89490000,337461000,778000,45129000,13527000,20.98,3.66,4.63,0.61,0.32,0.52,33.5,0.03,8.63,7.95
-LG전자,KOSPI,가전,2023,84220000,3450000,91000,55070000,20450000,34620000,480000,7890000,8900000,59.05,0.17,0.26,1.53,0.16,0.11,8.9,0.11,7.74,7.31
-현대자동차,KOSPI,자동차,2023,162674000,9428000,11330000,237594000,121945000,115649000,1682000,12450000,35670000,105.48,4.77,9.80,0.68,0.15,0.22,3.5,0.29,8.38,8.09"""
+삼성전자,KOSPI,반도체,2023,258870000000,154220000000,156250000000,426951000000000,89490000000000,337461000000000,7780000000000,45129000000000,13527000000000,20.98,3.66,4.63,0.61,0.32,0.52,33.5,0.03,8.63,7.95
+LG전자,KOSPI,가전,2023,84220000000,3450000000,9100000000,55070000000000,20450000000000,34620000000000,480000000000,7890000000000,8900000000000,59.05,0.17,0.26,1.53,0.16,0.11,8.9,0.11,7.74,7.31
+현대자동차,KOSPI,자동차,2023,162674000000000,9428000000000,11330000000000,237594000000000,121945000000000,115649000000000,16820000000000,124500000000000,35670000000000,105.48,4.77,9.80,0.68,0.15,0.22,3.5,0.29,8.38,8.09"""
 
     return template
 

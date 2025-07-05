@@ -21,7 +21,7 @@ def log_to_memory(content: str,
                 log_type: str,
                 module_name: str,
                 company_name: str,
-                unit: str = '억원',
+                unit: str = '원',
                 file_prefix: str = '') -> None:
     """
     내용을 메모리에 로깅합니다.
@@ -31,7 +31,7 @@ def log_to_memory(content: str,
         log_type (str): 로그 유형 (예: 'prompt', 'response')
         module_name (str): 모듈 이름 (예: 'credit_rating', 'report_generation')
         company_name (str): 회사명
-        unit (str, optional): 데이터 단위. 기본값은 '억원'.
+        unit (str, optional): 데이터 단위. 기본값은 '원'.
         file_prefix (str, optional): 파일명 접두사. 기본값은 빈 문자열.
     """
     # 타임스탬프 생성
@@ -128,14 +128,14 @@ def save_logs_to_files(module_name: str, company_name: str) -> List[str]:
     return saved_files
 
 
-def save_node_logs_to_file(module_name: str, company_name: str, unit: str = '억원') -> str:
+def save_node_logs_to_file(module_name: str, company_name: str, unit: str = '원') -> str:
     """
     특정 모듈과 회사에 대한 모든 노드 로그를 하나의 파일로 저장합니다.
 
     Args:
         module_name (str): 모듈 이름
         company_name (str): 회사명
-        unit (str, optional): 데이터 단위. 기본값은 '억원'.
+        unit (str, optional): 데이터 단위. 기본값은 '원'.
 
     Returns:
         str: 저장된 로그 파일 경로
@@ -187,7 +187,7 @@ def log_node_to_file(node_name: str,
                     content: str,
                     module_name: str,
                     company_name: str,
-                    unit: str = '억원') -> str:
+                    unit: str = '원') -> str:
     """
     노드의 결과를 바로 파일에 로깅합니다.
 
@@ -196,7 +196,7 @@ def log_node_to_file(node_name: str,
         content (str): 로깅할 내용
         module_name (str): 모듈 이름 (예: 'report_agent')
         company_name (str): 회사명
-        unit (str, optional): 데이터 단위. 기본값은 '억원'.
+        unit (str, optional): 데이터 단위. 기본값은 '원'.
 
     Returns:
         str: 로그 파일 경로
@@ -229,7 +229,7 @@ def log_to_file(content: str,
                 log_type: str, 
                 module_name: str, 
                 company_name: str, 
-                unit: str = '억원',
+                unit: str = '원',
                 file_prefix: str = '') -> str:
     """
     내용을 파일에 로깅합니다.
@@ -239,7 +239,7 @@ def log_to_file(content: str,
         log_type (str): 로그 유형 (예: 'prompt', 'response')
         module_name (str): 모듈 이름 (예: 'credit_rating', 'report_generation')
         company_name (str): 회사명
-        unit (str, optional): 데이터 단위. 기본값은 '억원'.
+        unit (str, optional): 데이터 단위. 기본값은 '원'.
         file_prefix (str, optional): 파일명 접두사. 기본값은 빈 문자열.
 
     Returns:

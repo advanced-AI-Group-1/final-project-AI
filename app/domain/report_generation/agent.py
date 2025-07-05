@@ -1,14 +1,13 @@
 """
 LangGraph를 사용한 보고서 생성 에이전트 구현
 """
+import logging
 import os
 import re
-import logging
-import sys
+import time
 import traceback
 from datetime import datetime
 from typing import Dict, Any
-import time
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
@@ -22,8 +21,7 @@ from app.domain.report_generation.prompts import (SUMMARY_CARD_PROMPT,
                                                   CREDIT_RATING_ANALYSIS_PROMPT,
                                                   CONCLUSION_PROMPT)
 from app.infrastructure.llm.manager import LLMManager
-from app.utils.logging_utils import log_to_file, log_to_memory, save_logs_to_files, log_node_to_memory, save_node_logs_to_file
-from app.domain.report_generation.news_utils import fetch_latest_news_links
+from app.utils.logging_utils import log_to_memory, log_node_to_memory
 
 
 class ReportAgent:
@@ -59,19 +57,19 @@ class ReportAgent:
     """
     # 회사명이 제공된 경우에만 로깅
     if company_name:
-        # 프롬프트 로깅
-        prefix = f"section_{section_name}" if section_name else "general"
-        log_to_memory(prompt, 'prompt', 'report_agent', company_name, '억원', prefix)
-
+      # 프롬프트 로깅
+      prefix = f"section_{section_name}" if section_name else "general"
+      log_to_memory(prompt, 'prompt', 'report_agent', company_name, '원', prefix)
+    
     # LLM 호출
     response = await self.llm_manager.generate_response(prompt)
-
+    
     # 회사명이 제공된 경우에만 로깅
     if company_name:
-        # 응답 로깅
-        prefix = f"section_{section_name}" if section_name else "general"
-        log_to_memory(response, 'response', 'report_agent', company_name, '억원', prefix)
-
+      # 응답 로깅
+      prefix = f"section_{section_name}" if section_name else "general"
+      log_to_memory(response, 'response', 'report_agent', company_name, '원', prefix)
+    
     return response
   
   def _format_financial_data(self, financial_data: Dict[str, Any]) -> str:
@@ -84,47 +82,47 @@ class ReportAgent:
     result.append(f"시장구분: {financial_data.get('market_type', '')}")
     
     # 손익계산서
-    result.append("\n[손익계산서]")
-    result.append(f"매출액: {financial_data.get('revenue', 0):,.1f}억원")
+    result.append("\n■ 손익계산서 데이터:")
+    result.append(f"매출액: {financial_data.get('revenue', 0):,.0f}원")
     result.append(
-      f"영업이익: {financial_data.get('operating_profit', 0):,.1f}억원 (이익률: {financial_data.get('operating_profit', 0) / financial_data.get('revenue', 1) * 100:.2f}%)"
+      f"영업이익: {financial_data.get('operating_profit', 0):,.0f}원 (이익률: {financial_data.get('operating_profit', 0) / financial_data.get('revenue', 1) * 100:.2f}%)"
     )
     result.append(
-      f"당기순이익: {financial_data.get('net_income', 0):,.1f}억원 (이익률: {financial_data.get('net_income', 0) / financial_data.get('revenue', 1) * 100:.2f}%)"
+      f"당기순이익: {financial_data.get('net_income', 0):,.0f}원 (이익률: {financial_data.get('net_income', 0) / financial_data.get('revenue', 1) * 100:.2f}%)"
     )
     
     # 재무상태표
-    result.append("\n[재무상태표]")
-    result.append(f"총자산: {financial_data.get('total_assets', 0):,.1f}억원")
-    result.append(f"총부채: {financial_data.get('total_liabilities', 0):,.1f}억원")
-    result.append(f"자본총계: {financial_data.get('total_equity', 0):,.1f}억원")
-
+    result.append("\n■ 재무상태표 데이터:")
+    result.append(f"총자산: {financial_data.get('total_assets', 0):,.0f}원")
+    result.append(f"총부채: {financial_data.get('total_liabilities', 0):,.0f}원")
+    result.append(f"자본총계: {financial_data.get('total_equity', 0):,.0f}원")
+    
     # 현금흐름표
-    result.append("\n[현금흐름표]")
+    result.append("\n■ 현금흐름표 데이터:")
     if 'cash_flow_from_operation' in financial_data:
-      result.append(f"영업활동현금흐름: {financial_data.get('cash_flow_from_operation', 0):,.1f}억원")
+      result.append(f"영업활동현금흐름: {financial_data.get('cash_flow_from_operation', 0):,.0f}원")
     if 'interest_expense' in financial_data:
-      result.append(f"이자비용: {financial_data.get('interest_expense', 0):,.1f}억원")
+      result.append(f"이자비용: {financial_data.get('interest_expense', 0):,.0f}원")
     if 'ebitda' in financial_data:
-      result.append(f"EBITDA: {financial_data.get('ebitda', 0):,.1f}억원")
+      result.append(f"EBITDA: {financial_data.get('ebitda', 0):,.0f}원")
     
     # 주요 재무비율
-    result.append("\n[주요 재무비율]")
-
+    result.append("\n■ 주요 재무비율 데이터:")
+    
     # 부채비율 - 자본잠식 상태(자본총계가 음수)인 경우 특별 처리
     if financial_data.get('total_equity', 0) <= 0:
       result.append("부채비율: 자본잠식 상태 (자본총계가 음수이므로 부채비율을 계산할 수 없음)")
     else:
       result.append(f"부채비율: {financial_data.get('debt_ratio', 0) * 100:.2f}%")
-
+    
     result.append(f"ROA(총자산이익률): {financial_data.get('ROA', 0) * 100:.2f}%")
-
+    
     # ROE - 자본잠식 상태인 경우 특별 처리
     if financial_data.get('total_equity', 0) <= 0:
       result.append("ROE(자기자본이익률): 자본잠식 상태 (자본총계가 음수이므로 해석에 주의 필요)")
     else:
       result.append(f"ROE(자기자본이익률): {financial_data.get('ROE', 0) * 100:.2f}%")
-
+    
     result.append(f"매출총자산회전율: {financial_data.get('asset_turnover_ratio', 0):.2f}회")
     
     return "\n".join(result)
@@ -157,13 +155,13 @@ class ReportAgent:
       result.append("\n[긍정적 요인]")
       for factor in credit_rating['positive_factors']:
         result.append(f"- {factor}")
-
+    
     # 부정적 요인이 있는 경우 처리
     if credit_rating and 'negative_factors' in credit_rating and credit_rating['negative_factors']:
       result.append("\n[부정적 요인]")
       for factor in credit_rating['negative_factors']:
         result.append(f"- {factor}")
-
+    
     # confidence_score가 있는 경우에만 처리
     if credit_rating and 'confidence_score' in credit_rating:
       result.append(f"\n신뢰도 점수: {credit_rating.get('confidence_score', 0) * 100:.1f}%")
@@ -216,13 +214,13 @@ class ReportAgent:
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = "## 추가 재무비율 계산 결과\n\n"
-        log_content += self._format_additional_ratios(additional_ratios)
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory("calculate_ratios", log_content, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = "## 추가 재무비율 계산 결과\n\n"
+      log_content += self._format_additional_ratios(additional_ratios)
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory("calculate_ratios", log_content, "report_agent", company_name)
+    
     return state
   
   async def _generate_summary_card(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -240,7 +238,8 @@ class ReportAgent:
       evaluation_date=datetime.now().strftime("%Y년 %m월 %d일"))
     
     # LLM 호출
-    summary_card = await self._call_llm(prompt, section_name="요약 카드", company_name=company_data.get("corp_name", ""))
+    summary_card = await self._call_llm(prompt, section_name="요약 카드",
+      company_name=company_data.get("corp_name", ""))
     
     # 구조화된 데이터 추출을 위한 프롬프트 구성
     structured_prompt = """
@@ -291,7 +290,8 @@ class ReportAgent:
     """.format(summary_card=summary_card)
     
     # LLM 호출하여 구조화된 데이터 추출
-    structured_data_str = await self._call_llm(structured_prompt, section_name="요약 카드 구조화", company_name=company_data.get("corp_name", ""))
+    structured_data_str = await self._call_llm(structured_prompt, section_name="요약 카드 구조화",
+      company_name=company_data.get("corp_name", ""))
     
     # JSON 문자열에서 실제 JSON 부분만 추출
     try:
@@ -317,16 +317,16 @@ class ReportAgent:
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = "## 요약 카드 생성 결과\n\n"
-        log_content += summary_card
-        log_content += "\n\n### 구조화된 데이터\n```json\n"
-        log_content += json.dumps(structured_data, ensure_ascii=False, indent=2)
-        log_content += "\n```"
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory("generate_summary", log_content, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = "## 요약 카드 생성 결과\n\n"
+      log_content += summary_card
+      log_content += "\n\n### 구조화된 데이터\n```json\n"
+      log_content += json.dumps(structured_data, ensure_ascii=False, indent=2)
+      log_content += "\n```"
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory("generate_summary", log_content, "report_agent", company_name)
+    
     return state
   
   def _format_section(self, section: Section) -> str:
@@ -374,7 +374,7 @@ class ReportAgent:
       return None
   
   async def _analyze_section(self, state: Dict[str, Any]) -> Dict[str, Any]:
-    """현재 섹션을 분석합니다."""
+    """현재 섹션을 분석하고 해당 섹션의 보고서를 작성합니다."""
     self.logger.info("현재 노드: analyze_section")
     company_data = state["company_data"]
     credit_rating = state["credit_rating"]
@@ -390,8 +390,7 @@ class ReportAgent:
       return state
     
     current_section = sections[current_index]
-
-
+    
     # 웹 검색이 필요한 섹션인지 확인
     web_search_result = None
     if current_section.get("requires_research", False):
@@ -417,7 +416,7 @@ class ReportAgent:
       업종: {industry_name}
       시장구분: {market_type}
       
-      다음 재무 데이터와 신용등급 정보를 바탕으로 '{section_name}' 섹션을 작성해주세요:
+      다음 재무 데이터와 신용등급 정보를 바탕으로 현금흐름 분석 내용을 작성해주세요:
       
       재무 데이터:
       {financial_data}
@@ -425,12 +424,15 @@ class ReportAgent:
       신용등급 정보:
       {credit_rating}
       
+      섹션 정보:
       섹션 설명: {section_description}
+      
+      중요: 응답에 '현금흐름표'나 '현금흐름표 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
+      
       글자 수 제한: {char_limit}자 이내
       """.format(company_name=company_data.get('corp_name', ''),
         industry_name=company_data.get('industry_name', ''),
         market_type=company_data.get('market_type', ''),
-        section_name=current_section['name'],
         financial_data=self._format_financial_data(company_data),
         credit_rating=self._format_credit_rating(credit_rating),
         section_description=current_section['description'],
@@ -448,7 +450,7 @@ class ReportAgent:
             업종: {company_data.get('industry_name', '')}
             시장구분: {company_data.get('market_type', '')}
             
-            다음 재무 데이터와 신용등급 정보를 바탕으로 '{current_section['name']}' 섹션을 작성해주세요:
+            다음 재무 데이터와 신용등급 정보를 바탕으로 분석 내용을 작성해주세요:
             
             재무 데이터:
             {self._format_financial_data(company_data)}
@@ -456,7 +458,11 @@ class ReportAgent:
             신용등급 정보:
             {self._format_credit_rating(credit_rating)}
             
+            섹션 정보:
             섹션 설명: {current_section['description']}
+            
+            중요: 응답에 '{current_section['name']}' 또는 '{current_section['name']} 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
+            
             글자 수 제한: {current_section['char_limit']}자 이내
             """
     
@@ -479,30 +485,31 @@ class ReportAgent:
       prompt += f"\n\n웹 검색 결과:\n{web_search_result}\n\n위 웹 검색 결과를 참고하여 분석을 더 풍부하게 해주세요."
     
     # LLM 호출
-    section_content = await self._call_llm(prompt, section_name=current_section['name'], company_name=company_data.get("corp_name", ""))
+    section_content = await self._call_llm(prompt, section_name=current_section['name'],
+      company_name=company_data.get("corp_name", ""))
     
     # 기업 개요 섹션에서는 뉴스 부분을 제거하고 별도로 저장
     if current_section["name"].replace(" ", "") == "기업개요":
-
-        # 뉴스 데이터는 이미 service.py에서 별도로 가져와서 API 응답에 포함시키므로 여기서는 추가하지 않음
-        pass
-
+      # 뉴스 데이터는 이미 service.py에서 별도로 가져와서 API 응답에 포함시키므로 여기서는 추가하지 않음
+      pass
+    
     # 섹션 내용 업데이트
     sections[current_index]["content"] = section_content
     
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = f"## 섹션 분석: {current_section['name']}\n\n"
-        log_content += f"### 섹션 설명\n{current_section['description']}\n\n"
-        log_content += f"### 분석 결과\n{section_content}\n\n"
-        if web_search_result:
-            log_content += f"### 웹 검색 결과\n{web_search_result}\n\n"
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory(f"analyze_section_{current_section['name']}", log_content, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = f"## 섹션 분석: {current_section['name']}\n\n"
+      log_content += f"### 섹션 설명\n{current_section['description']}\n\n"
+      log_content += f"### 분석 결과\n{section_content}\n\n"
+      if web_search_result:
+        log_content += f"### 웹 검색 결과\n{web_search_result}\n\n"
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory(f"analyze_section_{current_section['name']}", log_content, "report_agent",
+        company_name)
+    
     # 재생성 모드인 경우
     if regeneration_mode:
       # 현재 섹션이 재생성 목록의 마지막이면 재생성 모드 종료
@@ -522,7 +529,7 @@ class ReportAgent:
           return state
       except ValueError:
         pass
-
+        
         # 오류 발생 시 안전하게 컴파일로 진행
       state["regeneration_mode"] = False
       state["next"] = "compile_report"
@@ -594,12 +601,13 @@ class ReportAgent:
       """
       
       # LLM 호출
-      review_result = await self._call_llm(prompt, section_name=section['name'], company_name=company_data.get("corp_name", ""))
+      review_result = await self._call_llm(prompt, section_name=section['name'],
+        company_name=company_data.get("corp_name", ""))
       self.logger.info(f"LLM 응답 (섹션 '{section['name']}'): {review_result[:100]}...")
       
       # 점수 추출
       score = None
-
+      
       # 방법 1: '종합 점수:' 형식 찾기
       score_lines = [line for line in review_result.split('\n') if '종합' in line and '점수' in line]
       if score_lines:
@@ -609,15 +617,16 @@ class ReportAgent:
         if score_match:
           score = float(score_match.group(1))
           self.logger.info(f"방법 1로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
-
+          
           # 점수가 1-10 범위를 벗어나면 무효화
           if score < 1 or score > 10:
             self.logger.warning(f"추출된 점수 {score}가 유효 범위(1-10)를 벗어남")
             score = None
-
+      
       # 방법 2: '점수:' 형식 찾기 (이전 프롬프트와의 호환성)
       if score is None:
-        score_lines = [line for line in review_result.split('\n') if '점수:' in line and not ('종합' in line)]
+        score_lines = [line for line in review_result.split('\n') if
+                       '점수:' in line and not ('종합' in line)]
         if score_lines:
           score_text = score_lines[0].split('점수:')[1].strip()
           # 숫자만 추출
@@ -625,50 +634,50 @@ class ReportAgent:
           if score_match:
             score = float(score_match.group(1))
             self.logger.info(f"방법 2로 점수 추출 성공: {score} (원본 텍스트: '{score_text}')")
-
+            
             # 점수가 1-10 범위를 벗어나면 무효화
             if score < 1 or score > 10:
               self.logger.warning(f"추출된 점수 {score}가 유효 범위(1-10)를 벗어남")
               score = None
-
+      
       # 방법 3: 개별 평가 항목 점수 추출 및 평균 계산
       if score is None:
         # 정확성, 완전성, 논리성, 가독성, 통찰력 등의 항목별 점수 추출
         item_scores = []
-
+        
         # 항목별 점수 패턴 (예: "1. 정확성: 8" 또는 "정확성: 8/10")
         patterns = [
-            r'(\d+)\.\s*정확성:\s*(\d+(\.\d+)?)',  # 1. 정확성: 8
-            r'정확성:\s*(\d+(\.\d+)?)',            # 정확성: 8
-            r'완전성:\s*(\d+(\.\d+)?)',            # 완전성: 8
-            r'논리성:\s*(\d+(\.\d+)?)',            # 논리성: 8
-            r'가독성:\s*(\d+(\.\d+)?)',            # 가독성: 8
-            r'통찰력:\s*(\d+(\.\d+)?)'             # 통찰력: 8
+          r'(\d+)\.\s*정확성:\s*(\d+(\.\d+)?)',  # 1. 정확성: 8
+          r'정확성:\s*(\d+(\.\d+)?)',  # 정확성: 8
+          r'완전성:\s*(\d+(\.\d+)?)',  # 완전성: 8
+          r'논리성:\s*(\d+(\.\d+)?)',  # 논리성: 8
+          r'가독성:\s*(\d+(\.\d+)?)',  # 가독성: 8
+          r'통찰력:\s*(\d+(\.\d+)?)'  # 통찰력: 8
         ]
         
         for pattern in patterns:
-            matches = re.findall(pattern, review_result)
-            for match in matches:
-                if isinstance(match, tuple):
-                    # 패턴에 따라 그룹 인덱스가 다를 수 있음
-                    score_str = match[0] if pattern.startswith(r'(\d+)\.') else match[0]
-                    try:
-                        item_score = float(score_str)
-                        if 1 <= item_score <= 10:  # 유효한 점수 범위 확인
-                            item_scores.append(item_score)
-                    except ValueError:
-                        pass
-
+          matches = re.findall(pattern, review_result)
+          for match in matches:
+            if isinstance(match, tuple):
+              # 패턴에 따라 그룹 인덱스가 다를 수 있음
+              score_str = match[0] if pattern.startswith(r'(\d+)\.') else match[0]
+              try:
+                item_score = float(score_str)
+                if 1 <= item_score <= 10:  # 유효한 점수 범위 확인
+                  item_scores.append(item_score)
+              except ValueError:
+                pass
+        
         # 항목 점수가 3개 이상 있으면 평균 계산
         if len(item_scores) >= 3:
-            score = sum(item_scores) / len(item_scores)
-            self.logger.info(f"방법 3으로 점수 추출 성공: {score} (항목별 점수: {item_scores})")
-
+          score = sum(item_scores) / len(item_scores)
+          self.logger.info(f"방법 3으로 점수 추출 성공: {score} (항목별 점수: {item_scores})")
+      
       # 여전히 점수를 추출하지 못한 경우 기본값 설정
       if score is None:
         self.logger.warning(f"섹션 '{section['name']}'의 점수를 추출하지 못했습니다. 기본값 5.0 사용")
         score = 5.0  # 중간 점수로 기본 설정
-
+      
       # 결과 저장
       review_info = {
         "section_index": i,
@@ -677,27 +686,27 @@ class ReportAgent:
         "score": score
       }
       review_results.append(review_info)
-
+      
       # 점수가 낮은 섹션은 재생성 목록에 추가
       if score < 7.0:  # 7점 미만은 재생성 대상
         sections_to_regenerate.append(i)
         self.logger.info(f"섹션 '{section['name']}'의 점수가 {score}로 낮아 재생성 목록에 추가")
-
+    
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = "## 보고서 검증 결과\n\n"
-        for review in review_results:
-            log_content += f"### {review['section_name']} (점수: {review['score']})\n\n"
-            log_content += f"{review['review']}\n\n"
-            if review['section_index'] in sections_to_regenerate:
-                log_content += f"**재생성 필요** - 점수가 7.0 미만입니다.\n\n"
-            log_content += "---\n\n"
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory("review_report", log_content, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = "## 보고서 검증 결과\n\n"
+      for review in review_results:
+        log_content += f"### {review['section_name']} (점수: {review['score']})\n\n"
+        log_content += f"{review['review']}\n\n"
+        if review['section_index'] in sections_to_regenerate:
+          log_content += f"**재생성 필요** - 점수가 7.0 미만입니다.\n\n"
+        log_content += "---\n\n"
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory("review_report", log_content, "report_agent", company_name)
+    
     # 상태 업데이트
     state["review_results"] = review_results
     
@@ -720,7 +729,7 @@ class ReportAgent:
     sections = state["sections"]
     summary_card = state["summary_card"]
     company_data = state["company_data"]
-
+    
     # 상세 보고서 컴파일
     detailed_content = []
     
@@ -732,19 +741,19 @@ class ReportAgent:
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = "## 최종 보고서 컴파일 결과\n\n"
-        log_content += "### 요약 카드\n\n"
-        log_content += summary_card
-        log_content += "\n\n### 상세 보고서\n\n"
-        log_content += detailed_report
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory("compile_report", log_content, "report_agent", company_name)
-
-        # 최종 보고서 내용을 별도로 노드 로그에 추가
-        log_node_to_memory("final_report", detailed_report, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = "## 최종 보고서 컴파일 결과\n\n"
+      log_content += "### 요약 카드\n\n"
+      log_content += summary_card
+      log_content += "\n\n### 상세 보고서\n\n"
+      log_content += detailed_report
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory("compile_report", log_content, "report_agent", company_name)
+      
+      # 최종 보고서 내용을 별도로 노드 로그에 추가
+      log_node_to_memory("final_report", detailed_report, "report_agent", company_name)
+    
     # 상태 업데이트
     state["detailed_report"] = detailed_report
     
@@ -753,7 +762,7 @@ class ReportAgent:
   def _should_continue_analysis(self, state: Dict[str, Any]) -> bool:
     """모든 섹션 분석이 완료되었는지 확인합니다."""
     return state.get("all_analysis_done", False)
-
+  
   async def _plan_sections(self, state: Dict[str, Any]) -> Dict[str, Any]:
     """보고서 섹션을 계획합니다."""
     self.logger.info("현재 노드: plan_sections")
@@ -826,19 +835,19 @@ class ReportAgent:
     # 노드 결과 로깅
     company_name = company_data.get("corp_name", "")
     if company_name:
-        # 로그 내용 구성
-        log_content = "## 보고서 섹션 계획\n\n"
-        for i, section in enumerate(sections):
-            log_content += f"{i+1}. **{section['name']}** ({section['description']})\n"
-            log_content += f"   - 글자 수 제한: {section['char_limit']}자\n"
-            log_content += f"   - 계산 필요: {'예' if section['requires_calculation'] else '아니오'}\n"
-            log_content += f"   - 연구 필요: {'예' if section['requires_research'] else '아니오'}\n\n"
-
-        # 노드 결과를 메모리에 저장
-        log_node_to_memory("plan_sections", log_content, "report_agent", company_name)
-
+      # 로그 내용 구성
+      log_content = "## 보고서 섹션 계획\n\n"
+      for i, section in enumerate(sections):
+        log_content += f"{i + 1}. **{section['name']}** ({section['description']})\n"
+        log_content += f"   - 글자 수 제한: {section['char_limit']}자\n"
+        log_content += f"   - 계산 필요: {'예' if section['requires_calculation'] else '아니오'}\n"
+        log_content += f"   - 연구 필요: {'예' if section['requires_research'] else '아니오'}\n\n"
+      
+      # 노드 결과를 메모리에 저장
+      log_node_to_memory("plan_sections", log_content, "report_agent", company_name)
+    
     return state
-
+  
   def _build_workflow(self) -> StateGraph:
     """워크플로우를 구성합니다."""
     workflow = StateGraph(ReportState)
@@ -895,10 +904,10 @@ class ReportAgent:
     # 로깅 시작
     self.logger.info(f"'{company_name}' 기업 보고서 생성 시작")
     start_time = time.time()
-
+    
     # 단위 정보 로깅을 위해 추출
-    unit = financial_data.get('unit', '억원')
-
+    unit = financial_data.get('unit', '원')
+    
     # 초기 상태 생성
     initial_state = self._initialize_state(company_name, credit_rating_result, financial_data)
     
@@ -927,24 +936,25 @@ class ReportAgent:
       result = {
         "company_name": company_name,
         "summary_card": final_state["summary_card"],
-        "summary_card_structured": final_state.get("summary_card_structured", {}),  # 구조화된 요약 카드 데이터 추가
+        "summary_card_structured": final_state.get("summary_card_structured", {}),
+        # 구조화된 요약 카드 데이터 추가
         "detailed_report": final_state["detailed_report"],
         "sections": final_state["sections"],
         "credit_rating": final_state["credit_rating"],  # 신용등급 정보 추가
         "generated_at": datetime.now().isoformat()
       }
-
+      
       # 모든 노드 로그를 하나의 파일로 저장
       from app.utils.logging_utils import save_node_logs_to_file
       save_node_logs_to_file('report_agent', company_name, unit)
-
+      
       # 메모리에 저장된 다른 로그는 저장하지 않음
       # save_logs_to_files('report_agent', company_name)
-
+      
       # 로깅 완료
       end_time = time.time()
       self.logger.info(f"'{company_name}' 기업 보고서 생성 완료 (소요 시간: {end_time - start_time:.2f}초)")
-
+      
       return result
     except Exception as e:
       self.logger.error(f"보고서 생성 중 오류 발생: {str(e)}")
