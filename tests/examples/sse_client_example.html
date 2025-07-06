@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>신용등급 평가 및 보고서 생성 SSE 예제</title>
+	<style>
+		body {
+				font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+				max-width: 1000px;
+				margin: 0 auto;
+				padding: 20px;
+				line-height: 1.6;
+		}
+		h1 {
+				color: #333;
+				border-bottom: 1px solid #ddd;
+				padding-bottom: 10px;
+		}
+		.container {
+				display: flex;
+				gap: 20px;
+		}
+		.form-section {
+				flex: 1;
+		}
+		.results-section {
+				flex: 1;
+		}
+		.progress-container {
+				margin-top: 20px;
+				border: 1px solid #ddd;
+				padding: 15px;
+				border-radius: 5px;
+				background-color: #f9f9f9;
+		}
+		.progress-bar {
+				height: 20px;
+				background-color: #4CAF50;
+				width: 0%;
+				border-radius: 5px;
+				transition: width 0.3s;
+		}
+		.log-container {
+				margin-top: 20px;
+				border: 1px solid #ddd;
+				padding: 15px;
+				border-radius: 5px;
+				max-height: 300px;
+				overflow-y: auto;
+				background-color: #f5f5f5;
+		}
+		.log-item {
+				margin-bottom: 8px;
+				padding: 8px;
+				border-radius: 4px;
+		}
+		.log-info {
+				background-color: #e3f2fd;
+		}
+		.log-success {
+				background-color: #e8f5e9;
+		}
+		.log-error {
+				background-color: #ffebee;
+				color: #c62828;
+		}
+		.result-container {
+				margin-top: 20px;
+				border: 1px solid #ddd;
+				padding: 15px;
+				border-radius: 5px;
+				background-color: #fff;
+		}
+		button {
+				background-color: #4CAF50;
+				color: white;
+				padding: 10px 15px;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 16px;
+		}
+		button:hover {
+				background-color: #45a049;
+		}
+		button:disabled {
+				background-color: #cccccc;
+				cursor: not-allowed;
+		}
+		textarea {
+				width: 100%;
+				height: 200px;
+				padding: 12px;
+				border: 1px solid #ccc;
+				border-radius: 4px;
+				resize: vertical;
+				font-family: monospace;
+		}
+	</style>
+</head>
+<body>
+<h1>신용등급 평가 및 보고서 생성 SSE 예제</h1>
+
+<div class="container">
+	<div class="form-section">
+		<h2>재무 데이터 입력</h2>
+		<textarea id="financial-data">
+{
+	"company_name": "삼성전자",
+	"similarity_score": 0.4995545,
+	"financial_data": {
+		"corp_code": 5930,
+		"corp_name": "삼성전자",
+		"market_type": "유가증권시장상장법인",
+		"industry_name": "통신 및 방송장비 제조업",
+		"is_consolidated": true,
+		"revenue": 300870903000000,
+		"operating_profit": 32725961000000,
+		"net_income": 34451351000000,
+		"total_assets": 514531948000000,
+		"total_liabilities": 112339878000000,
+		"total_equity": 402192070000000,
+		"capital": 897514000000,
+		"operating_cash_flow": 72982621000000,
+		"interest_bearing_debt": 13172504000000,
+		"debt_ratio": 0.2793189781190862,
+		"ROA": 0.0669566800155235,
+		"ROE": 0.0856589514557062,
+		"asset_turnover_ratio": 0.5847467862189969,
+		"interest_to_assets_ratio": 0.0256009448027511,
+		"interest_to_revenue_ratio": 0.0437812492622458,
+		"cash_flow_to_interest": 5.540527526125212,
+		"interest_to_cash_flow": 0.1804882288346402,
+		"log_total_assets": 14.711412345880465,
+		"log_total_liabilities": 14.050533947900854,
+		"positive_factors": "[\"삼성전자는 전기·전자 업종에서 강력한 시장 점유율을 보유하고 있으며, 이는 매출 성장에 기여하고 있습니다.\", \"영업이익률이 높아 영업이익이 매출액 대비 안정적으로 증가하고 있습니다.\", \"재무상태가 양호하여 부채 비율이 낮고 유동성이 증가하고 있습니다.\"]",
+		"negative_factors": "[\"경쟁 심화로 인해 시장 점유율 확대에 어려움이 있을 수 있습니다.\", \"반도체 산업의 변동성으로 인한 사업 환경 악화 가능성이 존재합니다.\"]",
+		"description": "삼성전자 - 통신 및 방송장비 제조업 - 유가증권시장상장법인"
+	}
+}
+            </textarea>
+		<br><br>
+		<button id="submit-btn">신용등급 평가 및 보고서 생성 시작</button>
+	</div>
+	
+	<div class="results-section">
+		<h2>진행 상황</h2>
+		<div class="progress-container">
+			<div class="progress-bar" id="progress-bar"></div>
+			<p id="progress-text">0%</p>
+		</div>
+		
+		<div class="log-container" id="log-container">
+			<div class="log-item log-info">준비 완료. '시작' 버튼을 클릭하세요.</div>
+		</div>
+		
+		<div class="result-container" id="result-container" style="display: none;">
+			<h3>결과</h3>
+			<div id="result-content"></div>
+		</div>
+	</div>
+</div>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function() {
+			const submitBtn = document.getElementById('submit-btn');
+			const financialDataInput = document.getElementById('financial-data');
+			const progressBar = document.getElementById('progress-bar');
+			const progressText = document.getElementById('progress-text');
+			const logContainer = document.getElementById('log-container');
+			const resultContainer = document.getElementById('result-container');
+			const resultContent = document.getElementById('result-content');
+			
+			let eventSource = null;
+			
+			function addLogItem(message, type = 'info') {
+					const logItem = document.createElement('div');
+					logItem.className = `log-item log-${type}`;
+					logItem.textContent = message;
+					logContainer.appendChild(logItem);
+					logContainer.scrollTop = logContainer.scrollHeight;
+					console.log(`[${type}] ${message}`); // 콘솔에도 로그 출력
+			}
+			
+			function updateProgress(progress) {
+					progressBar.style.width = `${progress}%`;
+					progressText.textContent = `${progress}%`;
+			}
+			
+			function displayResult(result) {
+					resultContainer.style.display = 'block';
+					resultContent.innerHTML = ''; // 기존 내용 초기화
+					
+					// 결과가 객체인 경우 포맷팅
+					if (typeof result === 'object') {
+							// 회사명
+							if (result.company_name) {
+									const companyName = document.createElement('div');
+									companyName.innerHTML = `<h3>회사명: ${result.company_name}</h3>`;
+									resultContent.appendChild(companyName);
+							}
+							
+							// 신용등급 정보
+							if (result.credit_rating) {
+									const creditRating = document.createElement('div');
+									// 객체인 경우 JSON 문자열로 변환
+									const creditRatingText = typeof result.credit_rating === 'object' 
+											? JSON.stringify(result.credit_rating, null, 2) 
+											: result.credit_rating;
+									creditRating.innerHTML = `<h4>신용등급:</h4><pre>${creditRatingText}</pre>`;
+									resultContent.appendChild(creditRating);
+							}
+							
+							// 요약 카드
+							if (result.summary_card) {
+									const summaryCard = document.createElement('div');
+									summaryCard.innerHTML = `<h4>요약 카드:</h4><pre>${typeof result.summary_card === 'object' ? JSON.stringify(result.summary_card, null, 2) : result.summary_card}</pre>`;
+									resultContent.appendChild(summaryCard);
+							}
+							
+							// 상세 보고서
+							if (result.detailed_report) {
+									const detailedReport = document.createElement('div');
+									detailedReport.innerHTML = `<h4>상세 보고서:</h4><pre>${result.detailed_report}</pre>`;
+									resultContent.appendChild(detailedReport);
+							}
+							
+							// 섹션 정보
+							if (result.sections) {
+									const sections = document.createElement('div');
+									sections.innerHTML = `<h4>섹션:</h4><pre>${JSON.stringify(result.sections, null, 2)}</pre>`;
+									resultContent.appendChild(sections);
+							}
+							
+							// 기존 report_content 호환성 유지
+							if (result.report_content) {
+									const reportContent = document.createElement('div');
+									reportContent.innerHTML = `<h4>보고서 내용:</h4><pre>${result.report_content}</pre>`;
+									resultContent.appendChild(reportContent);
+							}
+					} else {
+							resultContent.textContent = result;
+					}
+			}
+			
+			submitBtn.addEventListener('click', function() {
+					// 이전 연결 종료
+					if (eventSource) {
+							eventSource.close();
+					}
+					
+					// UI 초기화
+					resultContainer.style.display = 'none';
+					resultContent.innerHTML = '';
+					logContainer.innerHTML = '';
+					updateProgress(0);
+					
+					try {
+							// 입력 데이터 파싱
+							const inputData = JSON.parse(financialDataInput.value);
+							
+							// 버튼 비활성화
+							submitBtn.disabled = true;
+							
+							addLogItem('신용등급 평가 및 보고서 생성 요청을 시작합니다.');
+							
+							// EventSource를 직접 사용하는 방식으로 변경
+							const apiUrl = 'http://localhost:8000/api/ai/v1/report/generate-from-financial-data/sse';
+							
+							// EventSource는 GET 요청만 지원하므로 POST 요청을 위해 fetch 사용
+							fetch(apiUrl, {
+									method: 'POST',
+									headers: {
+											'Content-Type': 'application/json'
+									},
+									body: financialDataInput.value
+							})
+							.then(response => {
+									if (!response.ok) {
+											throw new Error(`HTTP error! Status: ${response.status}`);
+									}
+									
+									// SSE 스트림 처리
+									const reader = response.body.getReader();
+									const decoder = new TextDecoder();
+									
+									function processStream() {
+											return reader.read().then(({ done, value }) => {
+													if (done) {
+															addLogItem('스트림이 종료되었습니다.', 'info');
+															submitBtn.disabled = false;
+															return;
+													}
+													
+													const chunk = decoder.decode(value, { stream: true });
+													console.log("Raw chunk:", chunk); // 디버깅용 로그
+													
+													// SSE 형식 파싱 (data: {...})
+													const lines = chunk.split('\n');
+													
+													let eventData = null;
+													let eventName = 'message';
+													
+													for (const line of lines) {
+															if (line.trim() === '') continue;
+															
+															if (line.startsWith('event:')) {
+																	eventName = line.substring(6).trim();
+															} else if (line.startsWith('data:')) {
+																	try {
+																			const dataStr = line.substring(5).trim();
+																			console.log("Data string:", dataStr); // 디버깅용 로그
+																			
+																			eventData = JSON.parse(dataStr);
+																			
+																			// 이벤트 처리
+																			if (eventData.step) {
+																					addLogItem(eventData.message || `단계: ${eventData.step}`);
+																					
+																					// 진행률 업데이트
+																					if (eventData.progress !== undefined) {
+																							updateProgress(eventData.progress);
+																					}
+																					
+																					// 결과 처리
+																					if (eventData.result && (eventData.step === 'completed' || eventData.step === 'report_generation_completed')) {
+																							displayResult(eventData.result);
+																					}
+																			}
+																			
+																			// 오류 처리
+																			if (eventData.error) {
+																					addLogItem(`오류: ${eventData.error}`, 'error');
+																					submitBtn.disabled = false;
+																			}
+																	} catch (e) {
+																			console.error('SSE 데이터 파싱 오류:', e, line);
+																			addLogItem(`데이터 파싱 오류: ${e.message}`, 'error');
+																	}
+															}
+													}
+													
+													return processStream();
+											});
+									}
+									
+									return processStream();
+							})
+							.catch(error => {
+									addLogItem(`요청 오류: ${error.message}`, 'error');
+									console.error('Fetch 오류:', error);
+									submitBtn.disabled = false;
+							});
+							
+					} catch (e) {
+							addLogItem(`입력 데이터 파싱 오류: ${e.message}`, 'error');
+							submitBtn.disabled = false;
+					}
+			});
+	});
+</script>
+</body>
+</html>
