@@ -97,6 +97,15 @@
 				resize: vertical;
 				font-family: monospace;
 		}
+		.news-list {
+				margin-top: 10px;
+		}
+		.news-item {
+				margin-bottom: 15px;
+				padding: 10px;
+				border: 1px solid #ddd;
+				border-radius: 5px;
+		}
 	</style>
 </head>
 <body>
@@ -231,6 +240,42 @@
 									const sections = document.createElement('div');
 									sections.innerHTML = `<h4>섹션:</h4><pre>${JSON.stringify(result.sections, null, 2)}</pre>`;
 									resultContent.appendChild(sections);
+							}
+							
+							// 뉴스 데이터 표시
+							if (result.news_data && result.news_data.length > 0) {
+									const newsContainer = document.createElement('div');
+									newsContainer.innerHTML = `<h4>관련 뉴스:</h4>`;
+									
+									const newsList = document.createElement('div');
+									newsList.className = 'news-list';
+									newsList.style.marginTop = '10px';
+									
+									result.news_data.forEach((news, index) => {
+											const newsItem = document.createElement('div');
+											newsItem.className = 'news-item';
+											newsItem.style.marginBottom = '15px';
+											newsItem.style.padding = '10px';
+											newsItem.style.border = '1px solid #ddd';
+											newsItem.style.borderRadius = '5px';
+											
+											let newsContent = `<h5>${news.title || '제목 없음'}</h5>`;
+											newsContent += `<p><strong>출처:</strong> ${news.source || 'N/A'}</p>`;
+											
+											if (news.url) {
+													newsContent += `<p><a href="${news.url}" target="_blank">뉴스 보기</a></p>`;
+											}
+											
+											if (news.image_url) {
+													newsContent += `<img src="${news.image_url}" alt="뉴스 이미지" style="max-width: 100%; max-height: 150px; margin-top: 10px;">`;
+											}
+											
+											newsItem.innerHTML = newsContent;
+											newsList.appendChild(newsItem);
+									});
+									
+									newsContainer.appendChild(newsList);
+									resultContent.appendChild(newsContainer);
 							}
 							
 							// 기존 report_content 호환성 유지

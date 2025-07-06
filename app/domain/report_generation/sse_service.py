@@ -105,7 +105,7 @@ class SSEReportGenerationService(ReportGenerationService):
       company_name: str,
       credit_rating_result: Dict[str, Any],
       financial_data: Dict[str, Any],
-      progress_callback: Optional[Callable[[str, int], None]] = None) -> str:
+      progress_callback: Optional[Callable[[str, int], None]] = None) -> Dict[str, Any]:
     """
     에이전트를 사용하여 보고서를 생성하고 진행 상황을 콜백으로 전달합니다.
     
@@ -116,7 +116,7 @@ class SSEReportGenerationService(ReportGenerationService):
         progress_callback: 진행 상황 콜백 함수
         
     Returns:
-        str: 생성된 보고서 내용
+        Dict[str, Any]: 생성된 보고서 내용
     """
     # 에이전트 초기화
     agent = self.report_agent
@@ -124,6 +124,15 @@ class SSEReportGenerationService(ReportGenerationService):
     # 보고서 생성 시작
     if progress_callback:
       progress_callback("보고서 생성을 위한 데이터 분석 중...", 50)
+    
+    # 관련 뉴스 데이터 가져오기
+    from app.domain.report_generation.news_utils import fetch_latest_news_links
+    try:
+        news_data = fetch_latest_news_links(company_name, max_results=3)
+        logger.info(f"{company_name}에 대한 뉴스 {len(news_data)}개 가져오기 성공")
+    except Exception as e:
+        logger.error(f"뉴스 데이터 가져오기 실패: {str(e)}")
+        news_data = []
     
     # 재무 데이터 및 신용등급 정보 포맷팅
     formatted_financial_data = self.report_agent._format_financial_data(financial_data)
@@ -142,10 +151,21 @@ class SSEReportGenerationService(ReportGenerationService):
     if progress_callback:
       progress_callback("보고서 최종 검토 및 포맷팅 중...", 90)
     
-    # 보고서 내용 추출
-    report_content = report_result
+    # 보고서 결과에 뉴스 데이터 추가
+    # 기존 report_result가 문자열이 아닌 딕셔너리인지 확인
+    if isinstance(report_result, dict):
+        report_result["news_data"] = news_data
+    else:
+        # 문자열이면 딕셔너리로 변환하여 뉴스 데이터 추가
+        report_result = {
+            "report_content": report_result,
+            "news_data": news_data
+        }
     
-    return report_content
+    # 디버깅을 위해 로그 추가
+    logger.info(f"보고서 결과에 뉴스 데이터 추가 완료: {len(news_data)}개 뉴스")
+    
+    return report_result
   
   def _report_progress_callback(self, message: str, progress: int):
     """
