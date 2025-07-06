@@ -323,6 +323,12 @@
 																							updateProgress(eventData.progress);
 																					}
 																					
+																					// 완료 상태 표시
+																					if (eventData.is_completed) {
+																							addLogItem('처리가 완료되었습니다.', 'success');
+																							submitBtn.disabled = false;
+																					}
+																					
 																					// 결과 처리
 																					if (eventData.result && (eventData.step === 'completed' || eventData.step === 'report_generation_completed')) {
 																							displayResult(eventData.result);
