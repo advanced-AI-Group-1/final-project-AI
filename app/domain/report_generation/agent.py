@@ -99,8 +99,11 @@ class ReportAgent:
     
     # 현금흐름표
     result.append("\n■ 현금흐름표 데이터:")
-    if 'cash_flow_from_operation' in financial_data:
-      result.append(f"영업활동현금흐름: {financial_data.get('cash_flow_from_operation', 0):,.0f}원")
+    operating_cf_keys = ['operating_cash_flow', '영업활동현금흐름', 'cash_flow_from_operation']
+    for key in operating_cf_keys:
+      if key in financial_data and financial_data[key] is not None:
+        result.append(f"영업활동현금흐름: {financial_data.get(key, 0):,.0f}원")
+        break
     if 'interest_expense' in financial_data:
       result.append(f"이자비용: {financial_data.get('interest_expense', 0):,.0f}원")
     if 'ebitda' in financial_data:
@@ -127,14 +130,14 @@ class ReportAgent:
     
     # 단위 변환 가이드 및 강력한 지침 추가
     result.append("\n■ 단위 표기 규칙 (반드시 준수):")
-    result.append("- 위 데이터는 모두 '억원' 단위로 제공됩니다")
+    result.append("- 위 데이터는 모두 '원' 단위로 제공됩니다")
     result.append("- 보고서 작성 시 가독성을 위해 다음 규칙을 따르세요:")
-    result.append("  1. 10,000억원 이상: 조원 단위 사용 (예: 877,281.8억원 → 87.7조원)")
-    result.append("  2. 1,000억원 이상: 조원 단위 사용 (예: 34,196.8억원 → 3.4조원)")
-    result.append("  3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)")
-    result.append("  4. 단위 변환 공식: 1조원 = 10,000억원")
+    result.append("  1. 1조원 이상: 조원 단위 사용 (예: 877,281,800,000,000원 → 877.3조원)")
+    result.append("  2. 1,000억원 이상: 조원 단위 사용 (예: 341,968,000,000원 → 0.34조원)")
+    result.append("  3. 1억원 이상: 억원 단위 사용 (예: 50,000,000,000원 → 500억원)")
+    result.append("  4. 단위 변환 공식: 1조원 = 1,000,000,000,000원, 1억원 = 100,000,000원")
     result.append("- 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)")
-    result.append("- 예시: 매출액 877,281.8억원은 반드시 '87.7조원'으로 표기")
+    result.append("- 예시: 매출액 877,281,800,000,000원은 반드시 '877.3조원'으로 표기")
     
     return "\n".join(result)
   
@@ -448,9 +451,9 @@ class ReportAgent:
             4. 현금 관리 효율성
 
             **단위 표기 규칙 (반드시 준수):**
-            1. 10,000억원 이상: 조원 단위 사용 (예: 87.7조원)
-            2. 1,000억원 이상: 조원 단위 사용 (예: 3.4조원)
-            3. 1,000억원 미만: 억원 단위 사용 (예: 500억원)
+            1. 1조원 이상: 조원 단위 사용 (예: 877.3조원)
+            2. 1,000억원 이상: 조원 단위 사용 (예: 0.34조원)
+            3. 1억원 이상: 억원 단위 사용 (예: 500억원)
             4. 절대 단위를 섞어서 쓰지 마세요 (일관성 유지)
 
             중요: 응답에 '유동성 분석'이나 '유동성 분석 섹션'과 같은 제목을 포함하지 마세요. 바로 내용을 시작해주세요.
